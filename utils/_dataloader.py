@@ -10,7 +10,7 @@ def get_dataloader(batch_size, tokenizer):
         mlm=False,
     )
     train_loader = DataLoader(
-        ds["train"],
+        ds,
         batch_size=batch_size,
         shuffle=True,
         collate_fn=collater,
