@@ -16,12 +16,14 @@ def train_tokenizer(text, fpath_tokenizer="tokenizer.json", vocab_size=16000):
     from tokenizers.models import Unigram
     from tokenizers.normalizers import NFKC
     from tokenizers.pre_tokenizers import UnicodeScripts
+    from tokenizers.decoders import Metaspace
     from tokenizers.trainers import UnigramTrainer
     from tokenizers.processors import TemplateProcessing
 
     tokenizer = Tokenizer(Unigram())
     tokenizer.normalizer = NFKC()
     tokenizer.pre_tokenizer = UnicodeScripts()
+    tokenizer.decoder = Metaspace()
     trainer = UnigramTrainer(
         vocab_size=vocab_size,
         unk_token="<unk>",
