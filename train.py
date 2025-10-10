@@ -116,8 +116,8 @@ class Trainer:
     def _unpack_batch(self, batch):
         input_ids = batch["input_ids"].to(self.device)
         labels = batch["labels"].to(self.device)
-        input_ids = input_ids[:, :self.max_len].contiguous()
-        labels = labels[:, :self.max_len].contiguous()
+        input_ids = input_ids[:, :self.max_len - 1].contiguous()
+        labels = labels[:, 1:self.max_len].contiguous()
         return input_ids, labels
 
     def _calc_loss(self, pred, labels):
