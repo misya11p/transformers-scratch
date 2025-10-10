@@ -44,6 +44,9 @@ class Trainer:
         else:
             raise ValueError(f"Model {model} not recognized")
 
+        n_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f"Number of parameters: {n_params:,}", flush=True)
+
         self.max_len = model_config["max_len"]
         self.n_epochs = train_config["n_epochs"]
         self.learning_rate = train_config["learning_rate"]
