@@ -41,4 +41,4 @@ def train_tokenizer(text, fpath_tokenizer="tokenizer.json", vocab_size=16000):
             ("</s>", tokenizer.token_to_id("</s>")),
         ],
     )
-    tokenizer.save(fpath_tokenizer)
+    tokenizer.save(str(fpath_tokenizer))
