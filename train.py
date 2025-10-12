@@ -3,6 +3,7 @@ import os
 import shutil
 from datetime import datetime, timedelta, timezone
 from collections import OrderedDict
+import contextlib
 
 import torch
 import torch.nn as nn
@@ -70,6 +71,8 @@ class Trainer:
 
         self.max_len = config.model.max_len
         self.n_epochs = config.train.n_epochs
+        self.grad_accum_steps = config.train.grad_accum_steps
+        self.max_grad_norm = config.train.max_grad_norm
         self.epoch = 0
 
         self._setup_ddp()
@@ -106,10 +109,11 @@ class Trainer:
 
     def train(self):
         print("Training started.", flush=True)
-        self.model.to(self.device)
-        self.model = torch.compile(self.model)
+        model = self.model # alias
+
+        model = torch.compile(model)
         torch.set_float32_matmul_precision("high")
-        self.model.train()
+        model.train()
 
         for epoch in range(self.n_epochs):
             self.epoch = epoch + 1
@@ -118,13 +122,23 @@ class Trainer:
                 desc=f"Epoch {self.epoch}/{self.n_epochs}",
                 leave=False
             )
-            for batch in pbar:
+            for i, batch in enumerate(pbar, 1):
+                is_update = (i % self.grad_accum_steps == 0)
+                if is_update:
+                    context = contextlib.nullcontext()
+                else:
+                    context = model.no_sync()
+
                 input_ids, labels = self._unpack_batch(batch)
-                pred = self.model(input_ids)
-                loss = self._loss_fn(pred, labels)
-                self.optimizer.zero_grad()
+                with context:
+                    pred = model(input_ids)
+                    loss = self._loss_fn(pred, labels)
+                loss = loss / self.grad_accum_steps
                 loss.backward()
-                self.optimizer.step()
+
+                if is_update:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
             self._save_checkpoint()
 
     def _unpack_batch(self, batch):
