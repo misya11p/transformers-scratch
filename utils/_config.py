@@ -1,23 +1,29 @@
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 
 from dacite import from_dict
 
 
+class BaseConfig:
+    def asdict(self):
+        return asdict(self)
+
+
 @dataclass
-class ModelConfig:
+class ModelConfig(BaseConfig):
     arch: str
     tokenizer: str
+    max_len: int
     hparams: dict = field(default_factory=dict)
 
 @dataclass
-class WandbConfig:
+class WandbConfig(BaseConfig):
     log_interval: int
     entity: str
     project: str
 
 @dataclass
-class TrainConfig:
+class TrainConfig(BaseConfig):
     n_epochs: int
     batch_size: int
     lr: float
@@ -26,7 +32,7 @@ class TrainConfig:
     wandb: WandbConfig = field(default_factory=WandbConfig)
 
 @dataclass
-class Config:
+class Config(BaseConfig):
     model: ModelConfig
     train: TrainConfig
 
