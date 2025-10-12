@@ -74,7 +74,7 @@ class Trainer:
 
         self._setup_ddp()
 
-        self.dataloader = get_dataloader(
+        self.train_dataloader, self.valid_dataloader = get_dataloader(
             batch_size=config.train.batch_size,
             dpath_data=dpath_data,
             tokenizer=self.tokenizer,
