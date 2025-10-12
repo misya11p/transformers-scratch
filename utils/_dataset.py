@@ -1,3 +1,4 @@
+from pathlib import Path
 import re
 import ast
 
@@ -6,21 +7,48 @@ from transformers import DataCollatorForLanguageModeling
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from ._tokenizer import get_tokenizer
 
-def get_dataloader(batch_size, tokenizer):
-    ds = load_dataset("data/wiki40b_processed/", split="train")
+
+DNAME_TEXTS = "texts"
+DNAME_TOKENS = "tokens"
+FNAME_PARQUET_TRAIN = "train.parquet"
+FNAME_PARQUET_VALID = "validation.parquet"
+
+
+def get_dataloader(
+    batch_size,
+    dpath_data="data/",
+    fpath_tokenizer="tokenizer.json"
+):
+    dpath_data = Path(dpath_data)
+    dpath_tokens = dpath_data / DNAME_TOKENS
+
+    ds_train = load_dataset(str(dpath_tokens), split="train")
+    ds_valid = load_dataset(str(dpath_tokens), split="validation")
+
+    tokenizer = get_tokenizer(fpath_tokenizer)
     collater = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
         mlm=False,
     )
     train_loader = DataLoader(
-        ds,
+        ds_train,
         batch_size=batch_size,
         shuffle=True,
         pin_memory=True,
+        num_workers=4,
+        drop_last=True,
         collate_fn=collater,
     )
-    return train_loader
+    valid_loader = DataLoader(
+        ds_valid,
+        batch_size=batch_size,
+        shuffle=False,
+        pin_memory=True,
+        collate_fn=collater,
+    )
+    return train_loader, valid_loader
 
 
 def format_text(ds):
