@@ -46,6 +46,7 @@ def get_dataloader(
         batch_size=batch_size,
         shuffle=False,
         pin_memory=True,
+        num_workers=2,
         collate_fn=collater,
     )
     return train_loader, valid_loader
