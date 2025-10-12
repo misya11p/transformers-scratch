@@ -1,51 +1,105 @@
 from pathlib import Path
 
 from datasets import load_dataset
+import typer
 
 from utils import format_text, get_tokenizer, train_tokenizer
 
 
-FPATH_TOKENIZER = "tokenizer.json"
-DPATH_DATA = "data/wiki40b/"
-DPATH_DATA_PROCESSED = "data/wiki40b_processed/"
-fname_parquet = "train.parquet"
+DNAME_TEXTS = "texts"
+DNAME_TOKENS = "tokens"
+FNAME_PARQUET_TRAIN = "train.parquet"
+FNAME_PARQUET_VALID = "validation.parquet"
+
+CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+app = typer.Typer(add_completion=False, context_settings=CONTEXT_SETTINGS)
 
 
-def main():
-    dpath_data = Path(DPATH_DATA)
-    dpath_data_processed = Path(DPATH_DATA_PROCESSED)
-    dpath_data.mkdir(parents=True, exist_ok=True)
-    dpath_data_processed.mkdir(parents=True, exist_ok=True)
-    fpath_tokenizer = Path(FPATH_TOKENIZER)
-    fpath_parquet = dpath_data_processed / fname_parquet
+@app.command()
+def main(
+    fpath_tokenizer: str = typer.Option(
+        "tokenizer.json",
+        "-t", "--tokenizer",
+        help="File path to save the trained tokenizer"
+    ),
+    dpath_data: str = typer.Option(
+        "data/",
+        "-d", "--dir-data",
+        help="Directory path to save the processed dataset"
+    ),
+    vocab_size: int = typer.Option(
+        16000,
+        "-v", "--vocab-size",
+        help="Vocabulary size for the tokenizer"
+    ),
+):
+    """Prepare dataset and tokenizer."""
 
-    if dpath_data.exists() and any(dpath_data.iterdir()):
-        ds = load_dataset(str(dpath_data), split="train")
+    fpath_tokenizer = Path(fpath_tokenizer)
+    dpath_data = Path(dpath_data)
+    dpath_texts = dpath_data / DNAME_TEXTS
+    dpath_tokens = dpath_data / DNAME_TOKENS
+
+    skip_download = False
+    if dpath_texts.exists():
+        files = list(dpath_texts.glob("*.parquet"))
+        names = [f.name for f in files]
+        if ("train.parquet" in names) and ("validation.parquet" in names):
+            skip_download = True
     else:
-        ds = load_dataset("wiki40b", "ja", split="train")
-        print("Loaded original dataset.", flush=True)
-        ds = format_text(ds)
-        ds.to_parquet(dpath_data)
-    print("Loaded prepared dataset.", flush=True)
+        dpath_texts.mkdir(parents=True)
 
-    if not fpath_tokenizer.exists():
+    skip_train = False
+    if fpath_tokenizer.exists():
+        skip_train = True
+
+    skip_tokenize = False
+    if dpath_tokens.exists():
+        files = list(dpath_tokens.glob("*.parquet"))
+        names = [f.name for f in files]
+        if ("train.parquet" in names) and ("validation.parquet" in names):
+            skip_tokenize = True
+    else:
+        dpath_tokens.mkdir(parents=True)
+
+    if not skip_download:
+        ds_train, ds_valid = load_dataset(
+            "wiki40b", "ja", split=["train", "validation"]
+        )
+        ds_train = format_text(ds_train)
+        ds_valid = format_text(ds_valid)
+        ds_train.to_parquet(dpath_texts / FNAME_PARQUET_TRAIN)
+        ds_valid.to_parquet(dpath_texts / FNAME_PARQUET_VALID)
+        print("Saved formatted texts.", flush=True)
+    else:
+        dss = load_dataset(str(dpath_texts))
+        ds_train = dss["train"]
+        ds_valid = dss["validation"]
+        print("Loaded formatted texts.", flush=True)
+
+    if not skip_train:
         train_tokenizer(
-            text=ds["text"],
+            text=ds_train["text"],
             fpath_tokenizer=fpath_tokenizer,
-            vocab_size=16000,
+            vocab_size=vocab_size,
         )
 
-    if not (
-        dpath_data_processed.exists() and any(dpath_data_processed.iterdir())
-    ):
+    if not (skip_train and skip_tokenize):
         tokenizer = get_tokenizer()
-        ds = ds.map(
+        ds_train = ds_train.map(
             lambda x: tokenizer(x["text"]),
             batched=True,
             remove_columns=["text"]
         )
-        ds.to_parquet(fpath_parquet)
+        ds_valid = ds_valid.map(
+            lambda x: tokenizer(x["text"]),
+            batched=True,
+            remove_columns=["text"]
+        )
+        ds_train.to_parquet(dpath_tokens / FNAME_PARQUET_TRAIN)
+        ds_valid.to_parquet(dpath_tokens / FNAME_PARQUET_VALID)
+        print("Saved tokenized dataset.", flush=True)
 
 
 if __name__ == "__main__":
-    main()
+    app()
