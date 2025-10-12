@@ -29,7 +29,11 @@ def train_tokenizer(text, fpath_tokenizer="tokenizer.json", vocab_size=16000):
         unk_token="<unk>",
         special_tokens=["<pad>", "<s>", "</s>", "<unk>", "<mask>"]
     )
+
+    print("Training tokenizer ... ", flush=True, end="")
     tokenizer.train_from_iterator(text, trainer=trainer)
+    print("Done.", flush=True)
+
     tokenizer.add_special_tokens()
     tokenizer.post_processor = TemplateProcessing(
         single="<s> $A </s>",
