@@ -4,7 +4,7 @@ import ast
 
 from datasets import Dataset, load_dataset
 from transformers import DataCollatorForLanguageModeling
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 from tqdm import tqdm
 
 from ._tokenizer import get_tokenizer
@@ -19,7 +19,9 @@ FNAME_PARQUET_VALID = "validation.parquet"
 def get_dataloader(
     batch_size,
     dpath_data="data/",
-    tokenizer="tokenizer.json"
+    tokenizer="tokenizer.json",
+    world_size=1,
+    rank=None,
 ):
     dpath_data = Path(dpath_data)
     dpath_tokens = dpath_data / DNAME_TOKENS
@@ -33,10 +35,23 @@ def get_dataloader(
         tokenizer=tokenizer,
         mlm=False,
     )
+
+    if world_size >= 2 and rank is not None:
+        train_sampler = DistributedSampler(
+            ds_train,
+            num_replicas=world_size,
+            rank=rank,
+            shuffle=True,
+            drop_last=True,
+        )
+    else:
+        train_sampler = None
+
     train_loader = DataLoader(
         ds_train,
         batch_size=batch_size,
-        shuffle=True,
+        sampler=train_sampler,
+        shuffle=(train_sampler is None),
         pin_memory=True,
         num_workers=4,
         drop_last=True,

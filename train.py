@@ -1,9 +1,13 @@
 from pathlib import Path
+import os
+import shutil
 from datetime import datetime, timedelta, timezone
 from collections import OrderedDict
 
 import torch
 import torch.nn as nn
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 from schedulefree import RAdamScheduleFree
 from tqdm import tqdm
 import typer
@@ -59,12 +63,38 @@ class Trainer:
         n_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print(f"Number of parameters: {n_params:,}", flush=True)
 
+        self.criterion = nn.CrossEntropyLoss()
+        self.optimizer = RAdamScheduleFree(
+            self.model.parameters(), lr=config.train.lr
+        )
+
+        self.max_len = config.model.max_len
+        self.n_epochs = config.train.n_epochs
+        self.epoch = 0
+
+        self._setup_ddp()
+
         self.dataloader = get_dataloader(
             batch_size=config.train.batch_size,
             dpath_data=dpath_data,
             tokenizer=self.tokenizer,
+            world_size=self.world_size,
         )
 
+        self._setup_checkpoint()
+
+    def _setup_ddp(self):
+        self.world_size = int(os.environ["WORLD_SIZE"])
+        torch.accelerator.set_device_index(int(os.environ["LOCAL_RANK"]))
+        acc = torch.accelerator.current_accelerator()
+        backend = torch.distributed.get_default_backend_for_device(acc)
+        dist.init_process_group(backend)
+        self.rank = dist.get_rank()
+        self.device_id = self.rank % torch.accelerator.device_count()
+        self.model = self.model.to(self.device_id)
+        self.model = DDP(self.model, device_ids=[self.device_id])
+
+    def _setup_checkpoint(self):
         dpath_ckpt_root = Path(DPATH_CHECKPOINTS)
         dpath_ckpt_root.mkdir(parents=True, exist_ok=True)
         now = datetime.now(JST).strftime("%Y%m%d_%H%M%S")
@@ -72,17 +102,7 @@ class Trainer:
         self.dpath_ckpt = Path(dpath_ckpt)
         self.dpath_ckpt.mkdir(parents=True, exist_ok=True)
         self.fpath_latest = dpath_ckpt_root / FNAME_LATEST
-
-        self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = RAdamScheduleFree(
-            self.model.parameters(), lr=config.train.lr
-        )
         print(f"Checkpoints will be saved to {self.dpath_ckpt}", flush=True)
-
-        self.max_len = config.model.max_len
-        self.n_epochs = config.train.n_epochs
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.epoch = 0
 
     def train(self):
         print("Training started.", flush=True)
@@ -125,15 +145,16 @@ class Trainer:
         correct_state_dict = OrderedDict()
         for key, value in state_dict.items():
             key = key.replace("_orig_mod.", "")
+            key = key.replace("module.", "")
             correct_state_dict[key] = value
         state_dict = {
             "model": correct_state_dict,
             "optimizer": self.optimizer.state_dict(),
-            "scheduler": self.scheduler.state_dict(),
             "config": self.config,
         }
-        torch.save(state_dict, self.dpath_ckpt / f"epoch{self.epoch}.pth")
-        torch.save(state_dict, self.fpath_latest)
+        fpath_state_dict = self.dpath_ckpt / f"epoch{self.epoch}.pth"
+        torch.save(state_dict, fpath_state_dict)
+        shutil.copy(fpath_state_dict, self.fpath_latest)
 
 if __name__ == "__main__":
     main()
