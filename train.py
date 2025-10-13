@@ -51,18 +51,20 @@ def main(
 
 class Trainer:
     def __init__(self, config, dpath_data, dpath_ckpt):
+        self.start_time = datetime.now(JST)
         self.tokenizer = get_tokenizer(config.model.tokenizer)
 
         config.model.hparams["max_len"] = config.model.max_len
         config.model.hparams["vocab_size"] = self.tokenizer.vocab_size
         self.config = config.asdict()
 
-        match config.model.arch:
+        arch = config.model.arch
+        match arch:
             case "vanilla":
                 from models import VanillaTransformer
                 self.model = VanillaTransformer(**config.model.hparams)
             case _:
-                raise ValueError(f"Model {config.model.arch} not recognized")
+                raise ValueError(f"Model {arch} not recognized")
 
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = RAdamScheduleFree(
@@ -91,9 +93,13 @@ class Trainer:
         self.n_iter_per_epoch = len(self.train_loader)
         self._setup_checkpoint(dpath_ckpt)
 
-        if self.is_root:
+        if self.is_master:
             print(f"Model: {config.model.arch}")
-            n_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            n_params = sum(
+                p.numel()
+                for p in self.model.parameters()
+                if p.requires_grad
+            )
             print(f"Number of parameters: {n_params:,}")
             print("Number of devices:", self.world_size)
             print(f"Checkpoints will be saved to {self.dpath_ckpt}")
@@ -111,21 +117,22 @@ class Trainer:
                 )
 
     def _is_dist(self):
-        rank = os.environ["RANK"]
-        dist_available = dist.is_available()
-        cuda_available = torch.cuda.is_available()
-        return dist_available and cuda_available and (rank and int(rank) >= 2)
+        return (
+            dist.is_available()
+            and torch.cuda.is_available()
+            and os.environ.get("RANK") is not None
+            and int(os.environ["WORLD_SIZE"]) > 1
+        )
 
     def _setup_device(self):
         if self._is_dist():
-            self.world_size = dist.get_world_size()
-            self.global_rank = dist.get_rank()
-
-            rank = dist.get_rank()
             torch.accelerator.set_device_index(rank)
             acc = torch.accelerator.current_accelerator()
             backend = torch.distributed.get_default_backend_for_device(acc)
             dist.init_process_group(backend)
+            self.world_size = dist.get_world_size()
+            self.global_rank = dist.get_global_rank()
+            rank = dist.get_rank()
             self.device = torch.device(rank)
             self.model = self.model.to(self.device)
             self.model = DDP(self.model, device_ids=[rank])
@@ -135,18 +142,18 @@ class Trainer:
             self.device = torch.accelerator.current_accelerator()
             self.model = self.model.to(self.device)
 
-        self.is_root = self.global_rank == 0
+        self.is_master = self.global_rank == 0
 
     def _setup_checkpoint(self, dpath_ckpt_root):
         dpath_ckpt_root.mkdir(parents=True, exist_ok=True)
-        now = datetime.now(JST).strftime("%Y%m%d_%H%M%S")
-        dpath_ckpt = dpath_ckpt_root / now
+        datestr = self.start_time.strftime("%Y%m%d_%H%M%S")
+        dpath_ckpt = dpath_ckpt_root / datestr
         self.dpath_ckpt = Path(dpath_ckpt)
         self.dpath_ckpt.mkdir(parents=True, exist_ok=True)
         self.fpath_latest = dpath_ckpt_root / FNAME_LATEST
 
     def train(self):
-        if self.is_root:
+        if self.is_master:
             print("Training started.", flush=True)
         model = self.model # alias
         model.train()
