@@ -31,6 +31,7 @@ def get_dataloader(
 
     if isinstance(tokenizer, str):
         tokenizer = get_tokenizer(tokenizer)
+
     collater = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
         mlm=False,

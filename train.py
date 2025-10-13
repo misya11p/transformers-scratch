@@ -78,29 +78,43 @@ class Trainer:
         self.max_grad_norm = config.train.max_grad_norm
         self.epoch = 0
 
-        self._setup_ddp()
+        self._setup_device()
+        self.model = torch.compile(self.model)
 
         self.train_loader, self.valid_loader = get_dataloader(
             batch_size=config.train.batch_size,
             dpath_data=dpath_data,
             tokenizer=self.tokenizer,
             world_size=self.world_size,
+            rank=self.rank_global,
         )
         self.n_iter_per_epoch = len(self.train_loader)
         self._setup_checkpoint()
 
-    def _setup_ddp(self):
-        self.world_size = int(os.environ["WORLD_SIZE"])
-        self.rank_local = int(os.environ["LOCAL_RANK"])
-        self.rank_global = int(os.environ["RANK"])
+    def _is_dist(self):
+        rank = os.environ["RANK"]
+        dist_available = dist.is_available()
+        cuda_available = torch.cuda.is_available()
+        return dist_available and cuda_available and (rank and int(rank) >= 2)
 
-        torch.accelerator.set_device_index(self.rank_local)
-        acc = torch.accelerator.current_accelerator()
-        backend = torch.distributed.get_default_backend_for_device(acc)
-        dist.init_process_group(backend)
-        self.device = torch.device(self.rank_local)
-        self.model = self.model.to(self.device)
-        self.model = DDP(self.model, device_ids=[self.rank_local])
+    def _setup_device(self):
+        if self._is_dist():
+            self.world_size = int(os.environ["WORLD_SIZE"])
+            self.rank_local = int(os.environ["LOCAL_RANK"])
+            self.rank_global = int(os.environ["RANK"])
+            torch.accelerator.set_device_index(self.rank_local)
+            acc = torch.accelerator.current_accelerator()
+            backend = torch.distributed.get_default_backend_for_device(acc)
+            dist.init_process_group(backend)
+            self.device = torch.device(self.rank_local)
+            self.model = self.model.to(self.device)
+            self.model = DDP(self.model, device_ids=[self.rank_local])
+        else:
+            self.world_size = None
+            self.rank_local = None
+            self.rank_global = None
+            self.device = torch.accelerator.current_accelerator()
+            self.model = self.model.to(self.device)
 
     def _setup_checkpoint(self):
         dpath_ckpt_root = Path(DPATH_CHECKPOINTS)
@@ -115,9 +129,6 @@ class Trainer:
     def train(self):
         print("Training started.", flush=True)
         model = self.model # alias
-
-        model = torch.compile(model)
-        torch.set_float32_matmul_precision("high")
         model.train()
 
         for epoch in range(self.n_epochs):
@@ -138,6 +149,7 @@ class Trainer:
                     context_nosync = contextlib.nullcontext()
                 else:
                     context_nosync = model.no_sync()
+
                 context_autocast = torch.autocast(
                     device_type=self.device.type,
                     dtype=torch.bfloat16,
@@ -157,6 +169,7 @@ class Trainer:
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.optimizer.zero_grad()
+
             self._save_checkpoint()
 
     def _unpack_batch(self, batch):
