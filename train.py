@@ -79,25 +79,27 @@ class Trainer:
 
         self._setup_ddp()
 
-        self.train_dataloader, self.valid_dataloader = get_dataloader(
+        self.train_loader, self.valid_loader = get_dataloader(
             batch_size=config.train.batch_size,
             dpath_data=dpath_data,
             tokenizer=self.tokenizer,
             world_size=self.world_size,
         )
-
+        self.n_iter_per_epoch = len(self.train_loader)
         self._setup_checkpoint()
 
     def _setup_ddp(self):
         self.world_size = int(os.environ["WORLD_SIZE"])
-        torch.accelerator.set_device_index(int(os.environ["LOCAL_RANK"]))
+        self.rank_local = int(os.environ["LOCAL_RANK"])
+        self.rank_global = int(os.environ["RANK"])
+
+        torch.accelerator.set_device_index(self.rank_local)
         acc = torch.accelerator.current_accelerator()
         backend = torch.distributed.get_default_backend_for_device(acc)
         dist.init_process_group(backend)
-        self.rank = dist.get_rank()
-        self.device_id = self.rank % torch.accelerator.device_count()
-        self.model = self.model.to(self.device_id)
-        self.model = DDP(self.model, device_ids=[self.device_id])
+        self.device = torch.device(self.rank_local)
+        self.model = self.model.to(self.device)
+        self.model = DDP(self.model, device_ids=[self.rank_local])
 
     def _setup_checkpoint(self):
         dpath_ckpt_root = Path(DPATH_CHECKPOINTS)
@@ -120,20 +122,23 @@ class Trainer:
         for epoch in range(self.n_epochs):
             self.epoch = epoch + 1
             pbar = tqdm(
-                self.dataloader,
+                self.train_loader,
                 desc=f"Epoch {self.epoch}/{self.n_epochs}",
                 leave=False
             )
             for i, batch in enumerate(pbar, 1):
                 input_ids, labels = self._unpack_batch(batch)
 
-                is_update = (i % self.grad_accum_steps == 0)
-                if is_update:
+                is_update_step = (
+                    i % self.grad_accum_steps == 0
+                    or i == self.n_iter_per_epoch
+                )
+                if is_update_step:
                     context_nosync = contextlib.nullcontext()
                 else:
                     context_nosync = model.no_sync()
                 context_autocast = torch.autocast(
-                    device_type=torch.device(self.device_id).type,
+                    device_type=self.device.type,
                     dtype=torch.bfloat16,
                 )
 
@@ -143,7 +148,7 @@ class Trainer:
                 loss = loss / self.grad_accum_steps
                 loss.backward()
 
-                if is_update:
+                if is_update_step:
                     self.optimizer.step()
                     self.optimizer.zero_grad()
             self._save_checkpoint()
