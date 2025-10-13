@@ -109,16 +109,16 @@ class Trainer:
             print("Number of devices:", self.world_size)
             print(f"Checkpoints will be saved to {self.dpath_ckpt}")
 
-            import wandb
-            name = (
-                config.train.wandb.name
-                or f"[{arch}] {self.start_time.strftime('%m/%d %H:%M')}"
-            )
-            self.wandb_run = wandb.init(
-                project=config.train.wandb.project,
-                name=name,
-                config=self.config,
-            )
+            # import wandb
+            # name = (
+            #     config.train.wandb.name
+            #     or f"[{arch}] {self.start_time.strftime('%m/%d %H:%M')}"
+            # )
+            # self.wandb_run = wandb.init(
+            #     project=config.train.wandb.project,
+            #     name=name,
+            #     config=self.config,
+            # )
 
     @staticmethod
     def _is_dist():
@@ -201,20 +201,23 @@ class Trainer:
                     loss = self._gather(loss.detach())
                     ppl = torch.exp(loss).item()
                     if self.is_master:
-                        self.wandb_run.log(
-                            {"train/perplexity": ppl},
-                            step=self.global_step,
-                        )
+                        print(f"Perplexity {ppl:.2f}", flush=True)
+                        # self.wandb_run.log(
+                        #     {"train/perplexity": ppl},
+                        #     step=self.global_step,
+                        # )
 
                 if is_evaluating_step:
                     ppl = self._evaluate()
                     if self.is_master:
-                        self.wandb_run.log(
-                            {"valid/perplexity": ppl},
-                            step=self.global_step,
-                        )
+                        # self.wandb_run.log(
+                        #     {"valid/perplexity": ppl},
+                        #     step=self.global_step,
+                        # )
+                        print(f"Validation Perplexity {ppl:.2f}")
 
-            self._save_checkpoint()
+            if self.is_master:
+                self._save_checkpoint()
 
     def _unpack_batch(self, batch):
         input_ids = batch["input_ids"].to(self.device)
@@ -266,4 +269,4 @@ class Trainer:
         shutil.copy(fpath_state_dict, self.fpath_latest)
 
 if __name__ == "__main__":
-    main()
+    app()
