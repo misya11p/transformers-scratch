@@ -10,7 +10,6 @@ import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from schedulefree import RAdamScheduleFree
-from tqdm import tqdm
 import typer
 
 from utils import load_config, get_tokenizer, get_dataloader
@@ -62,12 +61,8 @@ class Trainer:
             case "vanilla":
                 from models import VanillaTransformer
                 self.model = VanillaTransformer(**config.model.hparams)
-                print("Model: Vanilla Transformer", flush=True)
             case _:
                 raise ValueError(f"Model {config.model.arch} not recognized")
-
-        n_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        print(f"Number of parameters: {n_params:,}", flush=True)
 
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = RAdamScheduleFree(
@@ -91,10 +86,18 @@ class Trainer:
             dpath_data=dpath_data,
             tokenizer=self.tokenizer,
             world_size=self.world_size,
-            rank=self.rank_global,
+            rank=self.global_rank,
         )
         self.n_iter_per_epoch = len(self.train_loader)
         self._setup_checkpoint(dpath_ckpt)
+
+        if self.is_root:
+            print(f"Model: {config.model.arch}")
+            n_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            print(f"Number of parameters: {n_params:,}")
+            print("Number of devices:", self.world_size)
+            print(f"Checkpoints will be saved to {self.dpath_ckpt}")
+
 
     def _is_dist(self):
         rank = os.environ["RANK"]
@@ -104,22 +107,24 @@ class Trainer:
 
     def _setup_device(self):
         if self._is_dist():
-            self.world_size = int(os.environ["WORLD_SIZE"])
-            self.rank_local = int(os.environ["LOCAL_RANK"])
-            self.rank_global = int(os.environ["RANK"])
-            torch.accelerator.set_device_index(self.rank_local)
+            self.world_size = dist.get_world_size()
+            self.global_rank = dist.get_rank()
+
+            rank = dist.get_rank()
+            torch.accelerator.set_device_index(rank)
             acc = torch.accelerator.current_accelerator()
             backend = torch.distributed.get_default_backend_for_device(acc)
             dist.init_process_group(backend)
-            self.device = torch.device(self.rank_local)
+            self.device = torch.device(rank)
             self.model = self.model.to(self.device)
-            self.model = DDP(self.model, device_ids=[self.rank_local])
+            self.model = DDP(self.model, device_ids=[rank])
         else:
-            self.world_size = None
-            self.rank_local = None
-            self.rank_global = None
+            self.world_size = 1
+            self.global_rank = 1
             self.device = torch.accelerator.current_accelerator()
             self.model = self.model.to(self.device)
+
+        self.is_root = self.global_rank == 0
 
     def _setup_checkpoint(self, dpath_ckpt_root):
         dpath_ckpt_root.mkdir(parents=True, exist_ok=True)
@@ -128,21 +133,16 @@ class Trainer:
         self.dpath_ckpt = Path(dpath_ckpt)
         self.dpath_ckpt.mkdir(parents=True, exist_ok=True)
         self.fpath_latest = dpath_ckpt_root / FNAME_LATEST
-        print(f"Checkpoints will be saved to {self.dpath_ckpt}", flush=True)
 
     def train(self):
-        print("Training started.", flush=True)
+        if self.is_root:
+            print("Training started.", flush=True)
         model = self.model # alias
         model.train()
 
         for epoch in range(self.n_epochs):
             self.epoch = epoch + 1
-            pbar = tqdm(
-                self.train_loader,
-                desc=f"Epoch {self.epoch}/{self.n_epochs}",
-                leave=False
-            )
-            for i, batch in enumerate(pbar, 1):
+            for i, batch in enumerate(self.train_loader, 1):
                 input_ids, labels = self._unpack_batch(batch)
 
                 is_update_step = (
