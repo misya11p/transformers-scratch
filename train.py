@@ -65,6 +65,9 @@ class Trainer:
             case "vanilla_transformer":
                 from models import VanillaTransformer
                 self.model = VanillaTransformer(**config.model.hparams)
+            case "gpt2":
+                from models import GPT2
+                self.model = GPT2(**config.model.hparams)
             case _:
                 raise ValueError(f"Model {arch} not recognized")
 
