@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from ._attentions import MultiHeadAttention
-from ._ffn import FeedForwardNetwork
+from .layers import MultiHeadAttention
+from .layers import FeedForwardNetwork
 
 
 class TransformerLayer(nn.Module):
