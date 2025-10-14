@@ -80,9 +80,10 @@ class Trainer:
         self.n_epochs = config.train.n_epochs
         self.grad_accum_steps = config.train.grad_accum_steps
         self.max_grad_norm = config.train.max_grad_norm
-        self.log_interval = config.train.log_interval * self.grad_accum_steps
-        self.eval_interval = config.train.eval_interval * self.grad_accum_steps
+        self.log_interval = config.train.log_interval
+        self.eval_interval = config.train.eval_interval
         self.epoch = 0
+        self.global_step = 0
         self.total_tokens = 0
 
         self.is_dist = self._is_dist()
@@ -131,11 +132,12 @@ class Trainer:
 
     @staticmethod
     def _is_dist():
+        world_size = os.environ.get("WORLD_SIZE")
         return (
             dist.is_available()
             and torch.cuda.is_available()
-            and os.environ.get("RANK") is not None
-            and int(os.environ["WORLD_SIZE"]) > 1
+            and world_size is not None
+            and int(world_size) > 1
         )
 
     def _setup_device(self):
@@ -182,6 +184,7 @@ class Trainer:
                 start=1,
             )
             for i, batch in pbar:
+                self.global_step += 1
                 is_last = i == self.n_iter_per_epoch
                 is_update_step = i % self.grad_accum_steps == 0 or is_last
                 is_logging_step = i % self.log_interval == 0 or is_last
@@ -203,8 +206,8 @@ class Trainer:
                 with context_nosync, context_autocast:
                     pred = model(input_ids)
                     loss = self._loss_fn(pred, labels)
-                loss = self.scaler.scale(loss / self.grad_accum_steps)
-                loss.backward()
+                loss_scaled = self.scaler.scale(loss / self.grad_accum_steps)
+                loss_scaled.backward()
 
                 if is_update_step:
                     self.scaler.unscale_(self.optimizer)
@@ -216,15 +219,15 @@ class Trainer:
                     self.optimizer.zero_grad()
 
                 if is_logging_step:
-                    loss = self._gather(loss.detach())
-                    ppl = torch.exp(loss).item()
+                    loss = self._reduce(loss.detach())
                     if self.is_master:
+                        ppl = torch.exp(loss).item()
                         self.wandb_run.log(
                             {
                                 "train/perplexity": ppl,
                                 "total_tokens": self.total_tokens,
                             },
-                            step=self.total_tokens,
+                            step=self.global_step,
                         )
 
                 if is_evaluating_step:
@@ -235,7 +238,7 @@ class Trainer:
                                 "valid/perplexity": ppl,
                                 "total_tokens": self.total_tokens,
                             },
-                            step=self.total_tokens,
+                            step=self.global_step,
                         )
 
             if self.is_master:
@@ -254,9 +257,10 @@ class Trainer:
         loss = self.criterion(pred, labels)
         return loss
 
-    def _gather(self, tensor):
+    def _reduce(self, tensor):
         if self.is_dist:
-            tensor = dist.all_gather(tensor) / self.world_size
+            dist.reduce(tensor, dst=0)
+            tensor = tensor / self.world_size
         return tensor
 
     def _evaluate(self):
@@ -269,7 +273,7 @@ class Trainer:
                 pred = self.model(input_ids)
                 loss = self._loss_fn(pred, labels)
                 total_loss += loss
-        total_loss = self._gather(total_loss)
+        total_loss = self._reduce(total_loss)
         avg_loss = total_loss / len(self.valid_loader)
         ppl = torch.exp(avg_loss).item()
         self.model.train()
