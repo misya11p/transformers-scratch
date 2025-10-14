@@ -1,48 +1,7 @@
 import torch
 import torch.nn as nn
 
-
-class Attention(nn.Module):
-    def __init__(self, d):
-        super().__init__()
-        self.softmax = nn.Softmax(-1)
-        self.scale = d ** 0.5
-
-    def forward(self, q, k, v):
-        scores = q @ k.mT
-        causal_mask = self._get_causal_mask(q.shape[-2]).to(q.device)
-        scores = scores.masked_fill(causal_mask, -torch.inf)
-        weights = self.softmax(scores / self.scale)
-        out = weights @ v
-        return out
-
-    def _get_causal_mask(self, seq_len):
-        mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()
-        return mask
-
-
-class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model, n_heads, bias=True):
-        super().__init__()
-        self.n_heads = n_heads
-        assert not d_model % n_heads, "d_model must be divisible by n_heads"
-        d_k = d_model // n_heads
-        self.w_q = nn.Linear(d_model, d_model, bias=bias)
-        self.w_k = nn.Linear(d_model, d_model, bias=bias)
-        self.w_v = nn.Linear(d_model, d_model, bias=bias)
-        self.attention = Attention(d_k)
-        self.w_o = nn.Linear(d_model, d_model, bias=bias)
-
-    def forward(self, x):
-        q = self.w_q(x)
-        k = self.w_k(x)
-        v = self.w_v(x)
-        queries = torch.stack(q.chunk(self.n_heads, -1), 0)
-        keys = torch.stack(k.chunk(self.n_heads, -1), 0)
-        values = torch.stack(v.chunk(self.n_heads, -1), 0)
-        heads = self.attention(queries, keys, values).unbind(0)
-        out = self.w_o(torch.cat(heads, -1))
-        return out
+from ._attentions import MultiHeadAttention
 
 
 class FeedFowardNetwork(nn.Module):
