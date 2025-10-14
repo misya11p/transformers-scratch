@@ -7,7 +7,7 @@ from .layers import (
 )
 
 
-class TransformerLayer(nn.Module):
+class VanillaTransformerLayer(nn.Module):
     def __init__(self, d_model, n_heads, d_ff, dropout):
         super().__init__()
         self.mha = MultiHeadAttention(d_model, n_heads)
@@ -42,7 +42,7 @@ class VanillaTransformer(nn.Module):
         self.pe = SinusoidalPositionalEmbedding(d_model, max_len)
         self.dropout = nn.Dropout(dropout)
         self.transformer_layers = nn.Sequential(*[
-            TransformerLayer(d_model, n_heads, d_ff, dropout)
+            VanillaTransformerLayer(d_model, n_heads, d_ff, dropout)
             for _ in range(n_layers)
         ])
         self.fc = nn.Linear(d_model, vocab_size)
