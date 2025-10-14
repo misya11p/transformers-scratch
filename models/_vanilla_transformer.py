@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from .layers import (
-    SinusoidalPositionalEncoding,
+    SinusoidalPositionalEmbedding,
     MultiHeadAttention,
     FeedForwardNetwork,
 )
@@ -30,7 +30,7 @@ class VanillaTransformer(nn.Module):
     def __init__(self, vocab_size, max_len, n_layers, d_model, n_heads, d_ff, dropout):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
-        self.pe = SinusoidalPositionalEncoding(d_model, max_len)
+        self.pe = SinusoidalPositionalEmbedding(d_model, max_len)
         self.transformer_layers = nn.Sequential(*[
             TransformerLayer(d_model, n_heads, d_ff, dropout)
             for _ in range(n_layers)

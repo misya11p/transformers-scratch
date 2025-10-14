@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class SinusoidalPositionalEncoding(nn.Module):
+class SinusoidalPositionalEmbedding(nn.Module):
     def __init__(self, d_model, max_len):
         super().__init__()
         assert max_len % 2 == 0, "max_len must be even"
@@ -17,7 +17,7 @@ class SinusoidalPositionalEncoding(nn.Module):
         return x + self.pe[:x.size(-2)]
 
 
-class LearnablePositionalEncoding(nn.Module):
+class LearnablePositionalEmbedding(nn.Module):
     def __init__(self, d_model, max_len):
         super().__init__()
         self.pe = nn.Parameter(torch.randn((max_len, d_model)))

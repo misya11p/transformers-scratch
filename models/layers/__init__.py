@@ -1,3 +1,3 @@
-from ._pe import SinusoidalPositionalEncoding, LearnablePositionalEncoding
+from ._pe import SinusoidalPositionalEmbedding, LearnablePositionalEmbedding
 from ._attentions import MultiHeadAttention
 from ._ffn import FeedForwardNetwork
