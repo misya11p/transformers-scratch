@@ -2,25 +2,14 @@ import torch
 import torch.nn as nn
 
 from ._attentions import MultiHeadAttention
-
-
-class FeedFowardNetwork(nn.Module):
-    def __init__(self, d_model, d_ff):
-        super().__init__()
-        self.fc1 = nn.Linear(d_model, d_ff)
-        self.fc2 = nn.Linear(d_ff, d_model)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        out = self.fc2(self.relu(self.fc1(x)))
-        return out
+from ._ffn import FeedForwardNetwork
 
 
 class TransformerLayer(nn.Module):
     def __init__(self, d_model, n_heads, d_ff, dropout):
         super().__init__()
         self.mha = MultiHeadAttention(d_model, n_heads)
-        self.ffn = FeedFowardNetwork(d_model, d_ff)
+        self.ffn = FeedForwardNetwork(d_model, d_ff)
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
