@@ -40,6 +40,7 @@ class VanillaTransformer(nn.Module):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pe = SinusoidalPositionalEmbedding(d_model, max_len)
+        self.dropout = nn.Dropout(dropout)
         self.transformer_layers = nn.Sequential(*[
             TransformerLayer(d_model, n_heads, d_ff, dropout)
             for _ in range(n_layers)
@@ -49,6 +50,7 @@ class VanillaTransformer(nn.Module):
     def forward(self, x):
         x = self.embedding(x)
         x = self.pe(x)
+        x = self.dropout(x)
         x = self.transformer_layers(x)
         x = self.fc(x)
         return x
