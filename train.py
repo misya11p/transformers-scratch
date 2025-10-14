@@ -89,6 +89,10 @@ class Trainer:
         self.is_dist = self._is_dist()
         self._setup_device()
         self.is_master = self.global_rank == 0
+        self.context_autocast = torch.autocast(
+            device_type=self.device.type,
+            dtype=torch.bfloat16,
+        )
 
         self.model = torch.compile(self.model)
         self.train_loader, self.valid_loader = get_dataloader(
@@ -198,12 +202,7 @@ class Trainer:
                 else:
                     context_nosync = model.no_sync()
 
-                context_autocast = torch.autocast(
-                    device_type=self.device.type,
-                    dtype=torch.bfloat16,
-                )
-
-                with context_nosync, context_autocast:
+                with context_nosync, self.context_autocast:
                     pred = model(input_ids)
                     loss = self._loss_fn(pred, labels)
                 loss_scaled = self.scaler.scale(loss / self.grad_accum_steps)
@@ -263,16 +262,17 @@ class Trainer:
             tensor = tensor / self.world_size
         return tensor
 
+    @torch.no_grad()
     def _evaluate(self):
         self.model.eval()
         self.optimizer.eval()
         total_loss = torch.tensor(0., device=self.device)
-        with torch.no_grad():
-            for batch in self.valid_loader:
-                input_ids, labels = self._unpack_batch(batch)
+        for batch in self.valid_loader:
+            input_ids, labels = self._unpack_batch(batch)
+            with self.context_autocast:
                 pred = self.model(input_ids)
                 loss = self._loss_fn(pred, labels)
-                total_loss += loss
+            total_loss += loss
         total_loss = self._reduce(total_loss)
         avg_loss = total_loss / len(self.valid_loader)
         ppl = torch.exp(avg_loss).item()
