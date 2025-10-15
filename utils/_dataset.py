@@ -83,12 +83,9 @@ def format_text(ds):
     texts = ds["text"]
     for text in tqdm(texts, desc="Formatting text"):
         decoded_string = ast.literal_eval(text).decode("utf-8")
-        paragraphs = re.findall(
-            r"_START_PARAGRAPH_\n(.*?)(?=\n_START_PARAGRAPH_|\Z)",
-            decoded_string,
-            re.DOTALL
-        )
-        for paragraph in paragraphs:
+        sections = decoded_string.split("_START_SECTION_")
+        for section in sections:
+            paragraph = section.split("_START_PARAGRAPH_")[-1]
             paragraph = paragraph.replace("_NEWLINE_", "")
             paragraph = paragraph.replace("\n", "")
             paragraph = paragraph.strip()
