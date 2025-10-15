@@ -1,6 +1,6 @@
-# DL Models Scratch
+# Transformers Scratch
 
-深層学習モデルをスクラッチ実装していく。
+Transformerをスクラッチ実装していく。
 
 ## 準備
 
@@ -16,5 +16,3 @@ uv run torchrun --nproc_per_node=1 train.py
 ```
 
 ## テキスト生成
-
-`demo.ipynb`
