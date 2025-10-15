@@ -41,11 +41,6 @@ def main(
         "--max-rows",
         help="Maximum number of rows to use for training the tokenizer"
     ),
-    test_size: float = typer.Option(
-        0.05,
-        "--test-size",
-        help="Size of the validation set."
-    ),
 ):
     """Prepare dataset and tokenizer."""
 
@@ -53,8 +48,7 @@ def main(
     dpath_data = Path(dpath_data)
     dpath_data.mkdir(parents=True, exist_ok=True)
 
-    ds = load_dataset("fujiki/wiki40b_ja", cache_dir=dpath_cache)
-    dss = ds["train"].train_test_split(test_size=test_size, seed=0)
+    dss = load_dataset("fujiki/wiki40b_ja", cache_dir=dpath_cache)
     ds_train = dss["train"]
     ds_valid = dss["test"]
 
