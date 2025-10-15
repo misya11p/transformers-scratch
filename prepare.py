@@ -53,7 +53,7 @@ def main(
     dpath_data = Path(dpath_data)
     dpath_data.mkdir(parents=True, exist_ok=True)
 
-    ds = load_dataset("if001/oscar_2023_filtered", cache_dir=dpath_cache)
+    ds = load_dataset("fujiki/wiki40b_ja", cache_dir=dpath_cache)
     dss = ds["train"].train_test_split(test_size=test_size, seed=0)
     ds_train = dss["train"]
     ds_valid = dss["test"]
