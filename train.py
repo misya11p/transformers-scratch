@@ -283,6 +283,7 @@ class Trainer:
         return ppl
 
     def _save_checkpoint(self):
+        self.optimizer.eval()
         state_dict = self.model.state_dict()
         correct_state_dict = OrderedDict()
         for key, value in state_dict.items():
@@ -297,6 +298,7 @@ class Trainer:
         fpath_state_dict = self.dpath_ckpt / f"epoch{self.epoch}.pth"
         torch.save(state_dict, fpath_state_dict)
         shutil.copy(fpath_state_dict, self.fpath_latest)
+        self.optimizer.train()
 
 if __name__ == "__main__":
     app()
