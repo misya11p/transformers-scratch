@@ -11,3 +11,16 @@ class FeedForwardNetwork(nn.Module):
     def forward(self, x):
         out = self.fc2(self.activation(self.fc1(x)))
         return out
+
+
+class SwiGLU(nn.Module):
+    def __init__(self, d_model, d_ff, bias=False):
+        super().__init__()
+        self.fc1 = nn.Linear(d_model, d_ff, bias=bias)
+        self.fc2 = nn.Linear(d_model, d_ff, bias=bias)
+        self.fc3 = nn.Linear(d_ff, d_model, bias=bias)
+        self.swish = nn.SiLU()
+
+    def forward(self, x):
+        out = self.fc3(self.swish(self.fc2(x)) * self.fc1(x))
+        return out
