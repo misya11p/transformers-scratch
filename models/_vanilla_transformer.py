@@ -30,7 +30,7 @@ class VanillaTransformer(nn.Module):
     def __init__(
         self,
         vocab_size,
-        max_len,
+        max_len=1024,
         n_layers=6,
         d_model=512,
         n_heads=8,

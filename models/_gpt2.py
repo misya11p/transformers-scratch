@@ -30,7 +30,7 @@ class GPT2(nn.Module):
     def __init__(
         self,
         vocab_size,
-        max_len,
+        max_len=1024,
         n_layers=12,
         d_model=768,
         n_heads=12,
