@@ -26,7 +26,6 @@ class ImageEmbedding(nn.Module):
 class VisionTransformerEncoder(nn.Module):
     def __init__(
         self,
-        n_classes,
         image_size,
         patch_size,
         hidden_size,
@@ -45,7 +44,6 @@ class VisionTransformerEncoder(nn.Module):
             for _ in range(n_layers)
         ])
         self.norm = nn.LayerNorm(hidden_size)
-        self.mlp = nn.Linear(hidden_size, n_classes)
         self.cls = nn.Parameter(torch.randn(hidden_size))
 
     def forward(self, x):
@@ -69,7 +67,6 @@ class VisionTransformer(nn.Module):
     ):
         super().__init__()
         self.encoder = VisionTransformerEncoder(
-            n_classes,
             image_size,
             patch_size,
             hidden_size,
