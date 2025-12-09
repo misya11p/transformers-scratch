@@ -11,6 +11,7 @@ dependencies = [
     "schedulefree>=1.4.1",
     "tokenizers>=0.22.1",
     "torch>=2.8.0",
+    "torchvision>=0.23.0",
     "transformers>=4.57.0",
     "typer>=0.19.2",
     "wandb>=0.22.2",
