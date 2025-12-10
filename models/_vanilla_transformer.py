@@ -8,9 +8,9 @@ from .layers import (
 
 
 class VanillaTransformerLayer(nn.Module):
-    def __init__(self, d_model, n_heads, d_ff, dropout):
+    def __init__(self, d_model, n_heads, d_ff, dropout, is_causal=False):
         super().__init__()
-        self.mha = MultiHeadAttention(d_model, n_heads)
+        self.mha = MultiHeadAttention(d_model, n_heads, is_causal)
         self.ffn = FeedForwardNetwork(d_model, d_ff, activation=nn.ReLU())
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -30,7 +30,7 @@ class VanillaTransformer(nn.Module):
     def __init__(
         self,
         vocab_size,
-        max_len,
+        max_len=1024,
         n_layers=6,
         d_model=512,
         n_heads=8,
@@ -42,7 +42,7 @@ class VanillaTransformer(nn.Module):
         self.pe = SinusoidalPositionalEmbedding(d_model, max_len)
         self.dropout = nn.Dropout(dropout)
         self.transformer_layers = nn.Sequential(*[
-            VanillaTransformerLayer(d_model, n_heads, d_ff, dropout)
+            VanillaTransformerLayer(d_model, n_heads, d_ff, dropout, is_causal=True)
             for _ in range(n_layers)
         ])
         self.fc = nn.Linear(d_model, vocab_size)
