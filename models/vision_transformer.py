@@ -3,7 +3,7 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 
 from .layers import LearnablePositionalEmbedding
-from ._gpt2 import GPT2TransformerLayer
+from .gpt2 import GPT2TransformerLayer
 
 
 class ImageEmbedding(nn.Module):
