@@ -1,26 +1,23 @@
-from pathlib import Path
 import os
-import shutil
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from collections import OrderedDict
 import contextlib
 
 import torch
 import torch.nn as nn
+import torch.optim as optim
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-from schedulefree import RAdamScheduleFree
+from transformers import get_cosine_schedule_with_warmup
 import wandb
 import typer
-from tqdm import tqdm
 
 from utils import load_config, get_tokenizer, get_dataloader
 from models import get_model
 
 
 JST = timezone(timedelta(hours=9))
-FNAME_LATEST = "latest.pth"
-
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 app = typer.Typer(add_completion=False, context_settings=CONTEXT_SETTINGS)
 
@@ -58,20 +55,21 @@ class Trainer:
         arch = config.model.arch
         self.model = get_model(arch, config.model.hparams)
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = RAdamScheduleFree(
-            self.model.parameters(),
-            lr=config.train.lr,
-            betas=config.train.betas,
+        self.optimizer = optim.AdamW(self.model.parameters())
+        self.scheduler = get_cosine_schedule_with_warmup(
+            self.optimizer,
+            num_warmup_steps=int(0.1 * config.train.total_steps),
+            num_training_steps=config.train.total_steps,
         )
         self.scaler = torch.amp.GradScaler()
 
+        self.now_tokens = 0
+        self.now_steps = 0
+        self.total_steps = config.train.total_steps
+
         self.max_len = config.model.max_len
-        self.n_epochs = config.train.n_epochs
         self.grad_accum_steps = config.train.grad_accum_steps
         self.max_grad_norm = config.train.max_grad_norm
-        self.epoch = 0
-        self.global_step = 0
-        self.total_tokens = 0
 
         self.is_dist = self._is_dist()
         self._setup_device()
@@ -89,9 +87,8 @@ class Trainer:
             world_size=self.world_size,
             rank=self.global_rank,
         )
-        self.n_iter_per_epoch = len(self.train_loader)
-        self.log_interval = self.n_iter_per_epoch // config.train.log_freq + 1
-        self.eval_interval = self.n_iter_per_epoch // config.train.eval_freq + 1
+        self.log_interval = config.train.log_interval
+        self.eval_interval = config.train.eval_interval
         self._setup_checkpoint(dpath_ckpt)
 
         if self.is_master:
@@ -130,7 +127,7 @@ class Trainer:
             dist.is_available()
             and torch.cuda.is_available()
             and world_size is not None
-            and int(world_size) > 1
+            and int(world_size) >= 2
         )
 
     def _setup_device(self):
@@ -157,57 +154,54 @@ class Trainer:
         dpath_ckpt = dpath_ckpt_root / datestr
         self.dpath_ckpt = Path(dpath_ckpt)
         self.dpath_ckpt.mkdir(parents=True, exist_ok=True)
-        self.fpath_latest = dpath_ckpt_root / FNAME_LATEST
 
     def train(self):
         if self.is_master:
             print("Training started.", flush=True)
-        model = self.model # alias
-        model.train()
-        self.optimizer.train()
+        self.model.train()
 
-        for epoch in range(self.n_epochs):
-            self.epoch = epoch + 1
-            pbar = enumerate(
-                tqdm(
-                    self.train_loader,
-                    desc=f"Epoch {self.epoch}/{self.n_epochs}",
-                    disable=not self.is_master,
-                ),
-                start=1,
-            )
-            for i, batch in pbar:
-                self.global_step += 1
-                is_last = i == self.n_iter_per_epoch
-                is_update_step = i % self.grad_accum_steps == 0 or is_last
-                is_logging_step = (
-                    (self.global_step >= self.eval_interval)
-                    and (i % self.log_interval == 0 or is_last)
-                )
-                is_evaluating_step = i % self.eval_interval == 0 or is_last
+        is_running = True
+        while is_running:
+            for batch in self.train_loader:
+                self.now_steps += 1
+                is_last = self.now_steps >= self.total_steps
+                if is_last:
+                    is_updating_step = True
+                    is_logging_step = True
+                    is_evaluating_step = True
+                else:
+                    is_updating_step = self.now_steps % self.grad_accum_steps == 0
+                    is_logging_step = (
+                        (self.now_steps >= self.eval_interval)
+                        and (self.now_steps % self.log_interval == 0)
+                    )
+                    is_evaluating_step = self.now_steps % self.eval_interval == 0
 
                 input_ids, labels = self._unpack_batch(batch)
-                self.total_tokens += (labels != -100).sum().item()
+                n_tokens = (labels != -100).sum()
+                self._reduce(n_tokens, avg=False)
+                self.now_tokens += n_tokens.item()
 
-                if is_update_step:
-                    context_nosync = contextlib.nullcontext()
+                if (not is_updating_step) and self.is_dist:
+                    context_nosync = self.model.no_sync()
                 else:
-                    context_nosync = model.no_sync()
+                    context_nosync = contextlib.nullcontext()
 
                 with context_nosync, self.context_autocast:
-                    pred = model(input_ids)
+                    pred = self.model(input_ids)
                     loss = self._loss_fn(pred, labels)
                 loss_scaled = self.scaler.scale(loss / self.grad_accum_steps)
                 loss_scaled.backward()
 
-                if is_update_step:
+                if is_updating_step:
                     self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
-                        model.parameters(), self.max_grad_norm
+                        self.model.parameters(), self.max_grad_norm
                     )
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.optimizer.zero_grad()
+                    self.scheduler.step()
 
                 if is_logging_step:
                     loss = self._reduce(loss.detach())
@@ -216,9 +210,9 @@ class Trainer:
                         self.wandb_run.log(
                             {
                                 "train/perplexity": ppl,
-                                "total_tokens": self.total_tokens,
+                                "total_tokens": self.now_tokens,
                             },
-                            step=self.global_step,
+                            step=self.now_steps,
                         )
 
                 if is_evaluating_step:
@@ -227,13 +221,21 @@ class Trainer:
                         self.wandb_run.log(
                             {
                                 "valid/perplexity": ppl,
-                                "total_tokens": self.total_tokens,
+                                "total_tokens": self.now_tokens,
                             },
-                            step=self.global_step,
+                            step=self.now_steps,
                         )
+                        print(
+                            f"[{datetime.now(JST).strftime('%m/%d %H:%M:%S')}] "
+                            f"Step {self.now_steps}/{self.total_steps} - "
+                            f"Validation Perplexity: {ppl:.2f}",
+                            flush=True,
+                        )
+                        self._save_checkpoint()
 
-            if self.is_master:
-                self._save_checkpoint()
+                if is_last:
+                    is_running = False
+                    break
 
         if self.is_master:
             print("Training finished.", flush=True)
@@ -250,32 +252,33 @@ class Trainer:
         loss = self.criterion(pred, labels)
         return loss
 
-    def _reduce(self, tensor):
+    def _reduce(self, tensor, avg=True):
         if self.is_dist:
             dist.reduce(tensor, dst=0)
-            tensor = tensor / self.world_size
+            if avg:
+                tensor = tensor / self.world_size
         return tensor
 
     @torch.no_grad()
     def _evaluate(self):
         self.model.eval()
-        self.optimizer.eval()
         total_loss = torch.tensor(0., device=self.device)
+        n = 0
         for batch in self.valid_loader:
             input_ids, labels = self._unpack_batch(batch)
             with self.context_autocast:
                 pred = self.model(input_ids)
                 loss = self._loss_fn(pred, labels)
             total_loss += loss
+            n += 1
         total_loss = self._reduce(total_loss)
-        avg_loss = total_loss / len(self.valid_loader)
+        avg_loss = total_loss / n
         ppl = torch.exp(avg_loss).item()
         self.model.train()
-        self.optimizer.train()
         return ppl
 
     def _save_checkpoint(self):
-        self.optimizer.eval()
+        self.model.to(torch.device("cpu"))
         state_dict = self.model.state_dict()
         correct_state_dict = OrderedDict()
         for key, value in state_dict.items():
@@ -285,12 +288,16 @@ class Trainer:
         state_dict = {
             "model": correct_state_dict,
             "optimizer": self.optimizer.state_dict(),
+            "scheduler": self.scheduler.state_dict(),
+            "scaler": self.scaler.state_dict(),
+            "now_steps": self.now_steps,
+            "now_tokens": self.now_tokens,
             "config": self.config,
         }
-        fpath_state_dict = self.dpath_ckpt / f"epoch{self.epoch}.pth"
+        fname_state_dict = f"{self.now_steps:0{len(str(self.total_steps))}d}.pth"
+        fpath_state_dict = self.dpath_ckpt / fname_state_dict
         torch.save(state_dict, fpath_state_dict)
-        shutil.copy(fpath_state_dict, self.fpath_latest)
-        self.optimizer.train()
+        self.model.to(self.device)
 
 
 if __name__ == "__main__":

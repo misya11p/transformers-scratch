@@ -1,6 +1,6 @@
 [model]
 arch = "vanilla_transformer"
-tokenizer = "tokenizer.json"
+tokenizer = "trained/tokenizer.json"
 max_len = 1024
 
 [model.hparams]
@@ -11,10 +11,8 @@ d_ff = 2048
 dropout = 0.1
 
 [train]
-n_epochs = 10
-batch_size = 512
-lr = 3e-4
-betas = [0.9, 0.98]
+total_steps = 100000
+batch_size = 32
 grad_accum_steps = 2
 max_grad_norm = 1.0
 log_freq = 100

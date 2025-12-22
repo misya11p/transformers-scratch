@@ -13,6 +13,20 @@ class TextDataset(IterableDataset):
             yield text
 
 
+class Collater:
+    def __init__(self, tokenizer, max_length=1024):
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+
+    def __call__(self, batch):
+        return self.tokenizer(
+            batch,
+            truncation=True,
+            max_length=self.max_length,
+            padding=True,
+            return_tensors="pt",
+        )["input_ids"]
+
 def get_dataloader(
     batch_size,
     max_length=1024,
@@ -22,15 +36,7 @@ def get_dataloader(
 ):
     if isinstance(tokenizer, str):
         tokenizer = get_tokenizer(tokenizer)
-
-    def collate_fn(batch):
-        return tokenizer(
-            batch,
-            truncation=True,
-            max_length=max_length,
-            padding=True,
-            return_tensors="pt",
-        )["input_ids"]
+    collate_fn = Collater(tokenizer, max_length=max_length)
 
     ds_train = load_dataset(
         "hotchpotch/fineweb-2-edu-japanese",
@@ -42,11 +48,10 @@ def get_dataloader(
         "hotchpotch/fineweb-2-edu-japanese",
         "small_tokens_cleaned",
         split="test",
-        streaming=True,
     )
     ds_train = ds_train.shuffle(buffer_size=100)
 
-    if world_size >= 2 and rank is not None:
+    if (world_size >= 2) and (rank is not None):
         ds_train = ds_train.shard(num_shards=world_size, index=rank)
         ds_valid = ds_valid.shard(num_shards=world_size, index=rank)
 
@@ -55,14 +60,14 @@ def get_dataloader(
         batch_size=batch_size,
         collate_fn=collate_fn,
         pin_memory=True,
-        num_workers=4,
+        num_workers=2,
     )
     valid_loader = DataLoader(
         TextDataset(ds_valid),
         batch_size=batch_size,
         collate_fn=collate_fn,
         pin_memory=True,
-        num_workers=4,
+        num_workers=2,
     )
 
     return train_loader, valid_loader
