@@ -78,7 +78,7 @@ class Trainer:
         self.model = torch.compile(self.model)
         self.train_loader, self.valid_loader = get_dataloader(
             batch_size=config.train.batch_size,
-            max_length=self.max_len,
+            max_length=self.max_len + 1,
             tokenizer=self.tokenizer,
             world_size=self.world_size,
             rank=self.global_rank,
@@ -191,10 +191,8 @@ class Trainer:
                     )
                     is_evaluating_step = self.now_steps % self.eval_interval == 0
 
-                input_ids, labels = self._unpack_batch(batch)
-                n_tokens = (labels != -100).sum()
-                self._reduce(n_tokens, avg=False)
-                self.now_tokens += n_tokens.item()
+                input_ids, labels, attention_mask = self._unpack_batch(batch)
+                self.now_tokens += input_ids.numel() * self.world_size
 
                 if (not is_updating_step) and self.is_dist:
                     context_nosync = self.model.no_sync()
@@ -202,7 +200,7 @@ class Trainer:
                     context_nosync = contextlib.nullcontext()
 
                 with context_nosync, self.context_autocast:
-                    pred = self.model(input_ids)
+                    pred = self.model(input_ids, attention_mask)
                     loss = self._loss_fn(pred, labels)
                 loss_scaled = self.scaler.scale(loss / self.grad_accum_steps)
                 loss_scaled.backward()
@@ -256,9 +254,11 @@ class Trainer:
             self.wandb_run.finish()
 
     def _unpack_batch(self, batch):
-        input_ids = batch[:, :-1].contiguous().to(self.device)
-        labels = batch[:, 1:].contiguous().to(self.device)
-        return input_ids, labels
+        input_ids = batch["input_ids"].to(self.device)
+        attention_mask = batch["attention_mask"].to(self.device)
+        input_ids = input_ids[:, :-1].contiguous()
+        labels = input_ids[:, 1:].contiguous()
+        return input_ids, labels, attention_mask
 
     def _loss_fn(self, pred, labels):
         pred = pred.view(-1, pred.size(-1))
