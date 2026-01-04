@@ -8,12 +8,17 @@ class Attention(nn.Module):
         self.softmax = nn.Softmax(-1)
         self.is_causal = is_causal
 
-    def forward(self, q, k, v):
+    def forward(self, q, k, v, mask=None):
         scale = q.size(-1) ** 0.5
         scores = q @ k.mT
+
+        if mask is None:
+            mask = torch.zeros_like(scores).bool().to(q.device)
         if self.is_causal:
             causal_mask = self._get_causal_mask(q.shape[-2]).to(q.device)
-            scores = scores.masked_fill(causal_mask, -torch.inf)
+            mask = mask | causal_mask
+
+        scores = scores.masked_fill(mask, -torch.inf)
         weights = self.softmax(scores / scale)
         out = weights @ v
         return out
@@ -34,13 +39,13 @@ class MultiHeadAttention(nn.Module):
         self.attention = Attention(is_causal)
         self.w_o = nn.Linear(d_model, d_model)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         q = self.w_q(x)
         k = self.w_k(x)
         v = self.w_v(x)
         qs = torch.stack(q.chunk(self.n_heads, -1), 0)
         ks = torch.stack(k.chunk(self.n_heads, -1), 0)
         vs = torch.stack(v.chunk(self.n_heads, -1), 0)
-        heads = self.attention(qs, ks, vs).unbind(0)
+        heads = self.attention(qs, ks, vs, mask=mask).unbind(0)
         out = self.w_o(torch.cat(heads, -1))
         return out

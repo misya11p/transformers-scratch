@@ -16,10 +16,10 @@ class GPT2TransformerLayer(nn.Module):
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         res = x
         x = self.norm1(x)
-        x = self.dropout(self.mha(x)) + res
+        x = self.dropout(self.mha(x, mask=mask)) + res
         res = x
         x = self.norm2(x)
         x = self.dropout(self.ffn(x)) + res
@@ -47,11 +47,11 @@ class GPT2Encoder(nn.Module):
             for _ in range(n_layers)
         ])
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         x = self.embedding(x)
         x = self.pe(x)
         x = self.dropout(x)
-        x = self.transformer_layers(x)
+        x = self.transformer_layers(x, mask=mask)
         return x
 
 
@@ -80,8 +80,8 @@ class GPT2(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         self.fc = nn.Linear(d_model, vocab_size)
 
-    def forward(self, x):
-        x = self.encoder(x)
+    def forward(self, x, mask=None):
+        x = self.encoder(x, mask=mask)
         x = self.norm(x)
         x = self.fc(x) # For clarity, tied-embedding is not implemented
         return x

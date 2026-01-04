@@ -16,9 +16,9 @@ class VanillaTransformerLayer(nn.Module):
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         res = x
-        x = self.dropout(self.mha(x))
+        x = self.dropout(self.mha(x, mask=mask))
         x = self.norm1(x + res)
         res = x
         x = self.dropout(self.ffn(x))
@@ -47,10 +47,10 @@ class VanillaTransformer(nn.Module):
         ])
         self.fc = nn.Linear(d_model, vocab_size)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         x = self.embedding(x)
         x = self.pe(x)
         x = self.dropout(x)
-        x = self.transformer_layers(x)
+        x = self.transformer_layers(x, mask=mask)
         x = self.fc(x)
         return x
