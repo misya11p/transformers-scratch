@@ -51,11 +51,11 @@ class Trainer:
         config.model.hparams["vocab_size"] = self.tokenizer.vocab_size
         self.config = config.asdict()
 
-        model = get_model(config.model.arch, config.model.hparams)
-        self.n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        self.model = get_model(config.model.arch, config.model.hparams)
+        self.n_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = get_optimizer(
-            model,
+            self.model,
             hparams_muon=config.train.muon_params,
             hparams_adam=config.train.adam_params,
         )
@@ -85,7 +85,7 @@ class Trainer:
             dtype=torch.bfloat16,
         )
 
-        self.model = torch.compile(model)
+        self.model = torch.compile(self.model)
         self.train_loader, self.valid_loader = get_dataloader(
             batch_size=config.train.batch_size,
             max_length=self.max_len + 1,
