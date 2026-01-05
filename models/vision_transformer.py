@@ -39,7 +39,7 @@ class VisionTransformerEncoder(nn.Module):
             hidden_size,
             max_len=(image_size // patch_size) ** 2 + 1
         )
-        self.transformer_layers = nn.Sequential(*[
+        self.transformer_layers = nn.ModuleList([
             GPT2TransformerLayer(hidden_size, n_heads, mlp_size, is_causal=False)
             for _ in range(n_layers)
         ])
@@ -50,7 +50,8 @@ class VisionTransformerEncoder(nn.Module):
         x = self.embedding(x)
         x = torch.cat([self.cls.repeat(x.size(0), 1, 1), x], dim=1)
         x = self.pe(x)
-        x = self.transformer_layers(x)
+        for layer in self.transformer_layers:
+            x = layer(x)
         return x
 
 

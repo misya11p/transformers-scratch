@@ -41,7 +41,7 @@ class VanillaTransformer(nn.Module):
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pe = SinusoidalPositionalEmbedding(d_model, max_len)
         self.dropout = nn.Dropout(dropout)
-        self.transformer_layers = nn.Sequential(*[
+        self.transformer_layers = nn.ModuleList([
             VanillaTransformerLayer(d_model, n_heads, d_ff, dropout, is_causal=True)
             for _ in range(n_layers)
         ])
@@ -51,6 +51,7 @@ class VanillaTransformer(nn.Module):
         x = self.embedding(x)
         x = self.pe(x)
         x = self.dropout(x)
-        x = self.transformer_layers(x, mask=mask)
+        for layer in self.transformer_layers:
+            x = layer(x, mask=mask)
         x = self.fc(x)
         return x
