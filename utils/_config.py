@@ -1,5 +1,5 @@
 import tomllib
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 
 from dacite import from_dict
 
@@ -19,11 +19,11 @@ class TrainConfig:
     max_grad_norm: float = 1.0
     log_interval: int = 100
     eval_interval: int = 1000
-    wandb_name: str | None = None
+    warmup_ratio: float = 0.1
+    muon_params: dict | None = None
+    adam_params: dict | None = None
     wandb_project: str = "transformers-scratch"
-    optimizer: dict = field(default_factory=lambda: dict(
-        warup_ratio=0.1, muon=None, adam=None
-    ))
+    wandb_name: str | None = None
 
 @dataclass
 class Config:
