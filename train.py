@@ -104,7 +104,7 @@ class Trainer:
             else:
                 name = (
                     f"[{config.model.arch} {self.n_params // 1_000_000}M] "
-                    f"{self.start_time.strftime('%y%m/%d %H:%M')}"
+                    f"{self.start_time.strftime('%Y-%m-%d %H:%M')}"
                 )
 
             self.wandb_run = wandb.init(
@@ -258,11 +258,12 @@ class Trainer:
             self.wandb_run.finish()
 
     def _unpack_batch(self, batch):
-        input_ids = batch["input_ids"].to(self.device)
-        attention_mask = batch["attention_mask"].to(self.device)
-        input_ids = input_ids[:, :-1].contiguous()
-        labels = input_ids[:, 1:].contiguous()
-        return input_ids, labels, attention_mask
+        token_ids, seq_ids = batch
+        input_ids = token_ids[:, :-1].contiguous().to(self.device)
+        labels = token_ids[:, 1:].contiguous().to(self.device)
+        seq_ids = seq_ids[:, :-1]
+        mask = (seq_ids[:, :, None] != seq_ids[:, None, :]).to(self.device)
+        return input_ids, labels, mask
 
     def _loss_fn(self, pred, labels):
         pred = pred.view(-1, pred.size(-1))
