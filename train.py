@@ -51,27 +51,31 @@ class Trainer:
         config.model.hparams["vocab_size"] = self.tokenizer.vocab_size
         self.config = config.asdict()
 
-        self.model = get_model(config.model.arch, config.model.hparams)
-        self.n_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        model = get_model(config.model.arch, config.model.hparams)
+        self.n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = get_optimizer(
-            self.model,
+            model,
             hparams_muon=config.train.muon_params,
             hparams_adam=config.train.adam_params,
         )
+
+        self.total_steps = config.train.total_steps
+        self.grad_accum_steps = config.train.grad_accum_steps
+        scheduler_steps = config.train.total_steps // self.grad_accum_steps
+        warmup_steps = int(config.train.warmup_ratio * scheduler_steps)
         self.scheduler = get_cosine_schedule_with_warmup(
             self.optimizer,
-            num_warmup_steps=int(config.train.warmup_ratio * config.train.total_steps),
-            num_training_steps=config.train.total_steps,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=scheduler_steps,
         )
         self.scaler = torch.amp.GradScaler()
+
         self.now_tokens = 0
         self.now_steps = 0
-        self.total_steps = config.train.total_steps
         self._setup_checkpoint(dpath_ckpt)
 
         self.max_len = config.model.max_len
-        self.grad_accum_steps = config.train.grad_accum_steps
         self.max_grad_norm = config.train.max_grad_norm
         self.is_dist = self._is_dist()
         self._setup_device()
@@ -81,7 +85,7 @@ class Trainer:
             dtype=torch.bfloat16,
         )
 
-        self.model = torch.compile(self.model)
+        self.model = torch.compile(model)
         self.train_loader, self.valid_loader = get_dataloader(
             batch_size=config.train.batch_size,
             max_length=self.max_len + 1,
