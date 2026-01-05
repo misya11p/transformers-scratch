@@ -87,7 +87,7 @@ class Trainer:
 
         self.model = torch.compile(self.model)
         self.train_loader, self.valid_loader = get_dataloader(
-            batch_size=config.train.batch_size,
+            batch_size=config.train.batch_size // self.world_size,
             max_length=self.max_len + 1,
             tokenizer=self.tokenizer,
             world_size=self.world_size,
