@@ -11,6 +11,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from transformers import get_cosine_schedule_with_warmup
 import wandb
 import typer
+from tqdm import tqdm
 
 from utils import load_config, get_tokenizer, get_dataloader, get_optimizer
 from models import get_model
@@ -179,8 +180,12 @@ class Trainer:
         self.model.train()
 
         is_running = True
+        pbar = tqdm(total=self.total_steps, disable=not self.is_master)
+        pbar.n = self.now_steps
+        pbar.refresh()
         while is_running:
             for batch in self.train_loader:
+                pbar.update()
                 self.now_steps += 1
                 is_last = self.now_steps >= self.total_steps
                 if is_last:
