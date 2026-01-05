@@ -253,12 +253,6 @@ class Trainer:
                             },
                             step=self.now_steps,
                         )
-                        print(
-                            f"[{datetime.now(JST).strftime('%m/%d %H:%M:%S')}] "
-                            f"Step {self.now_steps}/{self.total_steps} - "
-                            f"Validation Perplexity: {ppl:.2f}",
-                            flush=True,
-                        )
                         self._save_checkpoint(latest_only=True)
 
                 if is_saving_step:
