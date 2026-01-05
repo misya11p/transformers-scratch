@@ -153,7 +153,7 @@ class Trainer:
         else:
             self.world_size = 1
             self.global_rank = 0
-            self.device = torch.accelerator.current_accelerator()
+            self.device = torch.accelerator.current_accelerator(check_available=True)
             self.model = self.model.to(self.device)
 
     def _setup_checkpoint(self, dpath_ckpt):
@@ -310,7 +310,6 @@ class Trainer:
         return ppl
 
     def _save_checkpoint(self, latest_only=True):
-        self.model.to(torch.device("cpu"))
         state_dict = self.model.state_dict()
         correct_state_dict = OrderedDict()
         for key, value in state_dict.items():
@@ -331,7 +330,6 @@ class Trainer:
             fname_state_dict = f"{self.now_steps:0{len(str(self.total_steps))}d}.pth"
             fpath_state_dict = self.dpath_ckpt / fname_state_dict
             torch.save(state_dict, fpath_state_dict)
-        self.model.to(self.device)
 
 
 if __name__ == "__main__":
