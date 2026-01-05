@@ -17,6 +17,7 @@ from utils import load_config, get_tokenizer, get_dataloader, get_optimizer
 from models import get_model
 
 
+FANME_LATEST = "latest.pth"
 JST = timezone(timedelta(hours=9))
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 app = typer.Typer(add_completion=False, context_settings=CONTEXT_SETTINGS)
@@ -90,6 +91,7 @@ class Trainer:
         )
         self.log_interval = config.train.log_interval
         self.eval_interval = config.train.eval_interval
+        self.save_interval = config.train.save_interval
 
         if self.is_master:
             print(f"Model: {config.model.arch}")
@@ -160,10 +162,7 @@ class Trainer:
             dpath_ckpt = Path(dpath_ckpt)
             assert dpath_ckpt.exists(), f"The checkpoint directory {dpath_ckpt} does not exist."
 
-            ckpt_files = sorted(dpath_ckpt.glob("*.pth"))
-            assert len(ckpt_files) > 0, f"No checkpoint files found in {dpath_ckpt} to resume."
-
-            latest_ckpt = ckpt_files[-1]
+            latest_ckpt = dpath_ckpt / FANME_LATEST
             state_dict = torch.load(latest_ckpt, map_location="cpu")
             self.model.load_state_dict(state_dict["model"])
             self.optimizer.load_state_dict(state_dict["optimizer"])
@@ -173,6 +172,7 @@ class Trainer:
             self.now_tokens = state_dict["now_tokens"]
             self.resume = True
         self.dpath_ckpt = dpath_ckpt
+        self.fpath_latest = self.dpath_ckpt / FANME_LATEST
 
     def train(self):
         if self.is_master:
@@ -192,6 +192,7 @@ class Trainer:
                     is_updating_step = True
                     is_logging_step = True
                     is_evaluating_step = True
+                    is_saving_step = True
                 else:
                     is_updating_step = self.now_steps % self.grad_accum_steps == 0
                     is_logging_step = (
@@ -199,6 +200,7 @@ class Trainer:
                         and (self.now_steps % self.log_interval == 0)
                     )
                     is_evaluating_step = self.now_steps % self.eval_interval == 0
+                    is_saving_step = self.now_steps % self.save_interval == 0
 
                 input_ids, labels, attention_mask = self._unpack_batch(batch)
                 self.now_tokens += input_ids.numel() * self.world_size
@@ -235,6 +237,7 @@ class Trainer:
                             },
                             step=self.now_steps,
                         )
+                        self._save_checkpoint(latest_only=True)
 
                 if is_evaluating_step:
                     ppl = self._evaluate()
@@ -252,7 +255,11 @@ class Trainer:
                             f"Validation Perplexity: {ppl:.2f}",
                             flush=True,
                         )
-                        self._save_checkpoint()
+                        self._save_checkpoint(latest_only=True)
+
+                if is_saving_step:
+                    if self.is_master:
+                        self._save_checkpoint(latest_only=False)
 
                 if is_last:
                     is_running = False
@@ -301,7 +308,7 @@ class Trainer:
         self.model.train()
         return ppl
 
-    def _save_checkpoint(self):
+    def _save_checkpoint(self, latest_only=True):
         self.model.to(torch.device("cpu"))
         state_dict = self.model.state_dict()
         correct_state_dict = OrderedDict()
@@ -318,9 +325,11 @@ class Trainer:
             "now_tokens": self.now_tokens,
             "config": self.config,
         }
-        fname_state_dict = f"{self.now_steps:0{len(str(self.total_steps))}d}.pth"
-        fpath_state_dict = self.dpath_ckpt / fname_state_dict
-        torch.save(state_dict, fpath_state_dict)
+        torch.save(state_dict, self.fpath_latest)
+        if not latest_only:
+            fname_state_dict = f"{self.now_steps:0{len(str(self.total_steps))}d}.pth"
+            fpath_state_dict = self.dpath_ckpt / fname_state_dict
+            torch.save(state_dict, fpath_state_dict)
         self.model.to(self.device)
 
 
