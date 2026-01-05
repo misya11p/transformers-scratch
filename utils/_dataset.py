@@ -40,7 +40,7 @@ def collate_fn(batch):
 
 def get_dataloader(
     batch_size,
-    max_length=1024,
+    max_length,
     tokenizer="trained/tokenizer.json",
     world_size=1,
     rank=None,
@@ -58,7 +58,6 @@ def get_dataloader(
         "hotchpotch/fineweb-2-edu-japanese",
         "small_tokens_cleaned",
         split="test",
-        streaming=True,
     )
     ds_train = ds_train.shuffle(buffer_size=100)
 
