@@ -13,19 +13,19 @@ dropout = 0.1
 [train]
 total_steps = 10000
 batch_size = 128
-grad_accum_steps = 8
+grad_accum_steps = 1
 max_grad_norm = 1.0
 log_interval = 32
 eval_interval = 256
 save_interval = 2000
-warmup_ratio = 0.01
+warmup_ratio = 0.03
 wandb_project = "transformers-scratch"
 
 [train.muon_params]
-lr = 1e-3
-weight_decay = 0.1
+lr = 2e-2
+weight_decay = 0.01
 
 [train.adam_params]
-lr = 1e-3
+lr = 3e-4
 weight_decay = 0.1
 betas = [0.9, 0.95]
