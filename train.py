@@ -199,7 +199,10 @@ class Trainer:
                     is_saving_step = True
                 else:
                     is_updating_step = self.now_steps % self.grad_accum_steps == 0
-                    is_logging_step = self.now_steps % self.log_interval == 0
+                    is_logging_step = (
+                        (self.now_steps >= self.eval_interval)
+                        and (self.now_steps % self.log_interval == 0)
+                    )
                     is_evaluating_step = self.now_steps % self.eval_interval == 0
                     is_saving_step = self.now_steps % self.save_interval == 0
 
