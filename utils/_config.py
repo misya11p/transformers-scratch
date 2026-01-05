@@ -17,8 +17,9 @@ class TrainConfig:
     batch_size: int # This value will be divided by world_size
     grad_accum_steps: int = 1
     max_grad_norm: float = 1.0
-    log_interval: int = 100
-    eval_interval: int = 1000
+    log_interval: int = 64
+    eval_interval: int = 1024
+    save_interval: int = 2048
     warmup_ratio: float = 0.1
     muon_params: dict | None = None
     adam_params: dict | None = None
