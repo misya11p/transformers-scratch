@@ -2741,19 +2741,6 @@ wheels = [
 ]
 
 [[package]]
-name = "schedulefree"
-version = "1.4.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "torch" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/bd/51/d78369c32b0f3818ee7f5a04e77ed02a6bd0ba8642462f780623af0010f5/schedulefree-1.4.1.tar.gz", hash = "sha256:69ef25601d1fc0d8dd00cb36f9af78833f88b7846f1bb6ddecc9f144f3e9f7cb", size = 29281, upload-time = "2025-03-24T17:32:37.996Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/ef/aac74263f0252806b46f0fd5a52566ee06129744572d0958cd0a77d22b0a/schedulefree-1.4.1-py3-none-any.whl", hash = "sha256:21602d3a0d35ee190152e3d56f547ea725d316310bd198fa6108f8039386b242", size = 55068, upload-time = "2025-03-24T20:32:10.525Z" },
-]
-
-[[package]]
 name = "send2trash"
 version = "1.8.3"
 source = { registry = "https://pypi.org/simple" }
@@ -3108,7 +3095,6 @@ dependencies = [
     { name = "datasets" },
     { name = "jupyter" },
     { name = "muon-optimizer" },
-    { name = "schedulefree" },
     { name = "sentencepiece" },
     { name = "tokenizers" },
     { name = "torch" },
@@ -3130,7 +3116,6 @@ requires-dist = [
     { name = "datasets", specifier = ">=4.2.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "muon-optimizer", specifier = ">=0.1.0" },
-    { name = "schedulefree", specifier = ">=1.4.1" },
     { name = "sentencepiece", specifier = ">=0.2.1" },
     { name = "tokenizers", specifier = ">=0.22.1" },
     { name = "torch", specifier = "==2.9.0" },

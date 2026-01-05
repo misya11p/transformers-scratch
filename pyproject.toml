@@ -9,7 +9,6 @@ dependencies = [
     "datasets>=4.2.0",
     "jupyter>=1.1.1",
     "muon-optimizer>=0.1.0",
-    "schedulefree>=1.4.1",
     "sentencepiece>=0.2.1",
     "tokenizers>=0.22.1",
     "torch==2.9.0",
