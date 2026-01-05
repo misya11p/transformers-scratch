@@ -6,10 +6,10 @@ from ._tokenizer import get_tokenizer
 
 
 class TextDataset(IterableDataset):
-    def __init__(self, ds, tokenizer, seq_length):
+    def __init__(self, ds, tokenizer, max_length):
         self.ds = ds
         self.tokenizer = tokenizer
-        self.seq_length = seq_length
+        self.max_length = max_length
 
     def __iter__(self):
         buf_token_ids = []
@@ -18,24 +18,19 @@ class TextDataset(IterableDataset):
 
         for text in self.ds["text"]:
             ids = self.tokenizer.encode(text, add_special_tokens=False)
-            ids.append(self.tokenizer.eos_token_id)
+            ids.insert(0, self.tokenizer.bos_token_id)
 
             buf_token_ids.extend(ids)
             buf_seq_ids.extend([seq_id] * len(ids))
             seq_id += 1
 
-            while len(buf_token_ids) >= self.seq_length:
-                yield buf_token_ids[:self.seq_length], buf_seq_ids[:self.seq_length]
-                buf_token_ids = buf_token_ids[self.seq_length:]
-                buf_seq_ids = buf_seq_ids[self.seq_length:]
-
-
-def collate_fn(batch):
-    token_ids, seq_ids = zip(*batch)
-    token_ids = torch.tensor(token_ids)
-    seq_ids = torch.tensor(seq_ids)
-    mask = seq_ids[:, :, None] != seq_ids[:, None, :]
-    return {"input_ids": token_ids, "attention_mask": mask}
+            while len(buf_token_ids) >= self.max_length:
+                yield (
+                    torch.tensor(buf_token_ids[:self.max_length]),
+                    torch.tensor(buf_seq_ids[:self.max_length]),
+                )
+                buf_token_ids = buf_token_ids[self.max_length:]
+                buf_seq_ids = buf_seq_ids[self.max_length:]
 
 
 def get_dataloader(
@@ -68,16 +63,12 @@ def get_dataloader(
     train_loader = DataLoader(
         TextDataset(ds_train, tokenizer, max_length),
         batch_size=batch_size,
-        collate_fn=collate_fn,
         pin_memory=True,
-        num_workers=2,
     )
     valid_loader = DataLoader(
         TextDataset(ds_valid, tokenizer, max_length),
         batch_size=batch_size,
-        collate_fn=collate_fn,
         pin_memory=True,
-        num_workers=2,
     )
 
     return train_loader, valid_loader
