@@ -59,7 +59,7 @@ def get_dataloader(
         "small_tokens_cleaned",
         split="test",
     )
-    ds_train = ds_train.shuffle(buffer_size=100)
+    ds_train = ds_train.shuffle(buffer_size=10000)
 
     if (world_size >= 2) and (rank is not None):
         ds_train = ds_train.shard(num_shards=world_size, index=rank)
