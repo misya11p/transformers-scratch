@@ -23,10 +23,10 @@ app = typer.Typer(add_completion=False, context_settings=CONTEXT_SETTINGS)
 
 @app.command()
 def main(
-    fpath_config: str = typer.Option(
-        "config.toml",
+    fname_config: str = typer.Option(
+        None,
         "-c", "--config",
-        help="File path to the config file (.toml)",
+        help="File name of the config file (.toml) in ./config",
     ),
     dpath_ckpt: str = typer.Option(
         None,
@@ -35,7 +35,7 @@ def main(
     ),
 ):
     """Train a language model."""
-    config = load_config(fpath_config)
+    config = load_config(fname_config)
     trainer = Trainer(config, dpath_ckpt)
     trainer.train()
 
