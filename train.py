@@ -297,9 +297,9 @@ class Trainer:
         total_loss = torch.tensor(0., device=self.device)
         n = 0
         for batch in self.valid_loader:
-            input_ids, labels = self._unpack_batch(batch)
+            input_ids, labels, attention_mask = self._unpack_batch(batch)
             with self.context_autocast:
-                pred = self.model(input_ids)
+                pred = self.model(input_ids, attention_mask)
                 loss = self._loss_fn(pred, labels)
             total_loss += loss
             n += 1
