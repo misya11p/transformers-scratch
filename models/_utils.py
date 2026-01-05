@@ -3,7 +3,7 @@ import torch
 
 def get_model(arch: str, hparams: dict) -> torch.nn.Module:
     match arch:
-        case "vanilla_transformer":
+        case "vanilla":
             from models import VanillaTransformer
             model = VanillaTransformer(**hparams)
         case "gpt2":
