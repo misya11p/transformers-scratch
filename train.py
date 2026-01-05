@@ -52,10 +52,14 @@ class Trainer:
         self.model = get_model(config.model.arch, config.model.hparams)
         self.n_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = get_optimizer(self.model)
+        self.optimizer = get_optimizer(
+            self.model,
+            hparams_muon=config.train.optimizer.muon,
+            hparams_adam=config.train.optimizer.adam,
+        )
         self.scheduler = get_cosine_schedule_with_warmup(
             self.optimizer,
-            num_warmup_steps=int(0.1 * config.train.total_steps),
+            num_warmup_steps=int(config.train.optimizer.warmup_ratio * config.train.total_steps),
             num_training_steps=config.train.total_steps,
         )
         self.scaler = torch.amp.GradScaler()
