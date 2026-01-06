@@ -38,5 +38,5 @@ uv run python train_tokenizer.py
 ### 学習
 
 ```
-uv run torchrun --nproc_per_node=1 train.py
+uv run torchrun --nproc_per_node=1 train.py -c gpt2
 ```
