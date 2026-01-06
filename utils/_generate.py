@@ -3,14 +3,24 @@ from ._tokenizer import get_tokenizer
 
 
 class Generator:
-    def __init__(self, model, fpath_tokenizer="tokenizer.json"):
+    def __init__(self, model, tokenizer="trained/tokenizer.json"):
         self.model = model
-        self.tokenizer = get_tokenizer(fpath_tokenizer)
+        if isinstance(tokenizer, str):
+            tokenizer = get_tokenizer(tokenizer)
+        self.tokenizer = tokenizer
         self.device = next(model.parameters()).device
 
     @torch.no_grad()
-    def __call__(self, start_text, max_len=100, temperature=1.0, top_k=5):
-        print(start_text, end="")
+    def __call__(
+        self,
+        start_text,
+        streaming=False,
+        max_len=100,
+        temperature=1.0,
+        top_k=5
+    ):
+        if streaming:
+            print(start_text, end="")
 
         self.model.eval()
         token_ids = self.tokenizer.encode(start_text, add_special_tokens=False)
@@ -32,7 +42,8 @@ class Generator:
             token_ids.append(next_token)
             if next_token == self.tokenizer.eos_token_id:
                 break
-            print(self.tokenizer.convert_ids_to_tokens(next_token), end="")
+            if streaming:
+                print(self.tokenizer.convert_ids_to_tokens(next_token), end="")
 
         generated_text = self.tokenizer.decode(
             token_ids, skip_special_tokens=True
