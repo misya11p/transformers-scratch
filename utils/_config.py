@@ -19,7 +19,7 @@ class TrainConfig:
     max_grad_norm: float = 1.0
     log_interval: int = 64
     eval_interval: int = 1024
-    save_interval: int = 2048
+    save_interval: int | None = None
     warmup_ratio: float = 0.1
     muon_params: dict | None = None
     adam_params: dict | None = None

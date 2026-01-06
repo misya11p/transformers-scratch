@@ -201,7 +201,10 @@ class Trainer:
                     is_updating_step = self.now_steps % self.grad_accum_steps == 0
                     is_logging_step = self.now_steps % self.log_interval == 0
                     is_evaluating_step = self.now_steps % self.eval_interval == 0
-                    is_saving_step = self.now_steps % self.save_interval == 0
+                    is_saving_step = (
+                        self.save_interval
+                        and self.now_steps % self.save_interval == 0
+                    )
 
                 input_ids, labels, attention_mask = self._unpack_batch(batch)
                 self.now_tokens += input_ids.numel() * self.world_size
