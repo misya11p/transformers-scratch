@@ -17,7 +17,8 @@ from utils import load_config, get_tokenizer, get_dataloader, get_optimizer
 from models import get_model
 
 
-FANME_LATEST = "latest.pth"
+FNAME_STATE = "state.pth"
+FNAME_MODEL = "model.pth"
 JST = timezone(timedelta(hours=9))
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 app = typer.Typer(add_completion=False, context_settings=CONTEXT_SETTINGS)
@@ -166,7 +167,7 @@ class Trainer:
             dpath_ckpt = Path(dpath_ckpt)
             assert dpath_ckpt.exists(), f"The checkpoint directory {dpath_ckpt} does not exist."
 
-            latest_ckpt = dpath_ckpt / FANME_LATEST
+            latest_ckpt = dpath_ckpt / FNAME_STATE
             state_dict = torch.load(latest_ckpt, map_location="cpu")
             self.model.load_state_dict(state_dict["model"])
             self.optimizer.load_state_dict(state_dict["optimizer"])
@@ -176,7 +177,6 @@ class Trainer:
             self.now_tokens = state_dict["now_tokens"]
             self.resume = True
         self.dpath_ckpt = dpath_ckpt
-        self.fpath_latest = self.dpath_ckpt / FANME_LATEST
 
     def train(self):
         if self.is_master:
@@ -241,7 +241,7 @@ class Trainer:
                             },
                             step=self.now_steps,
                         )
-                        self._save_checkpoint(latest_only=True)
+                        self._save_checkpoint()
 
                 if is_evaluating_step:
                     ppl = self._evaluate()
@@ -253,11 +253,11 @@ class Trainer:
                             },
                             step=self.now_steps,
                         )
-                        self._save_checkpoint(latest_only=True)
+                        self._save_checkpoint()
 
                 if is_saving_step:
                     if self.is_master:
-                        self._save_checkpoint(latest_only=False)
+                        self._save_checkpoint(snapshot=True)
 
                 if is_last:
                     is_running = False
@@ -306,15 +306,15 @@ class Trainer:
         self.model.train()
         return ppl
 
-    def _save_checkpoint(self, latest_only=True):
-        state_dict = self.model.state_dict()
-        correct_state_dict = OrderedDict()
-        for key, value in state_dict.items():
+    def _save_checkpoint(self, snapshot=False):
+        model_state_dict = self.model.state_dict()
+        correct_model_state_dict = OrderedDict()
+        for key, value in model_state_dict.items():
             key = key.replace("_orig_mod.", "")
             key = key.replace("module.", "")
-            correct_state_dict[key] = value
+            correct_model_state_dict[key] = value
         state_dict = {
-            "model": correct_state_dict,
+            "model": correct_model_state_dict,
             "optimizer": self.optimizer.state_dict(),
             "scheduler": self.scheduler.state_dict(),
             "scaler": self.scaler.state_dict(),
@@ -322,11 +322,13 @@ class Trainer:
             "now_tokens": self.now_tokens,
             "config": self.config,
         }
-        torch.save(state_dict, self.fpath_latest)
-        if not latest_only:
-            fname_state_dict = f"{self.now_steps:0{len(str(self.total_steps))}d}.pth"
-            fpath_state_dict = self.dpath_ckpt / fname_state_dict
-            torch.save(state_dict, fpath_state_dict)
+        torch.save(state_dict, self.dpath_ckpt / FNAME_STATE)
+        torch.save(correct_model_state_dict, self.dpath_ckpt / FNAME_MODEL)
+
+        if snapshot:
+            fname_snapshot = f"{self.now_steps:0{len(str(self.total_steps))}d}.pth"
+            fpath_snapshot = self.dpath_ckpt / fname_snapshot
+            torch.save(state_dict, fpath_snapshot)
 
 
 if __name__ == "__main__":
