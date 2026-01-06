@@ -23,8 +23,9 @@ class Generator:
             print(start_text, end="")
 
         self.model.eval()
+        eos_id = self.tokenizer.eos_token_id
         token_ids = self.tokenizer.encode(start_text, add_special_tokens=False)
-        token_ids.insert(0, self.tokenizer.bos_token_id)
+        token_ids.insert(0, eos_id)
 
         for _ in range(max_len):
             input_ids = torch.tensor(
@@ -40,7 +41,7 @@ class Generator:
             next_token = next_token.item()
 
             token_ids.append(next_token)
-            if next_token == self.tokenizer.eos_token_id:
+            if next_token == eos_id:
                 break
             if streaming:
                 print(self.tokenizer.convert_ids_to_tokens(next_token), end="")
