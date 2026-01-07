@@ -40,3 +40,7 @@ uv run python train_tokenizer.py
 ```
 uv run torchrun --nproc_per_node=1 train.py -c gpt2
 ```
+
+## デモ
+
+[playground.ipynb](playground.ipynb)
