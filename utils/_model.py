@@ -1,5 +1,7 @@
 import torch
 
+from ._tokenizer import get_tokenizer
+
 
 def get_model(arch: str, hparams: dict) -> torch.nn.Module:
     match arch:
@@ -19,7 +21,9 @@ def load_model(fpath_ckpt, device="cpu"):
     arch = checkpoint["config"]["model"]["arch"]
     hparams = checkpoint["config"]["model"]["hparams"]
     params = checkpoint["model"]
+    fpath_tokenizer = checkpoint["config"]["model"]["tokenizer"]
     model = get_model(arch, hparams)
     model.load_state_dict(params)
     model.to(device)
-    return model
+    tokenizer = get_tokenizer(fpath_tokenizer)
+    return model, tokenizer
