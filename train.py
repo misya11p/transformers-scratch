@@ -196,7 +196,7 @@ class Trainer:
                     is_updating_step = True
                     is_logging_step = True
                     is_evaluating_step = True
-                    is_saving_step = True
+                    is_saving_step = self.save_interval is not None
                 else:
                     is_updating_step = self.now_steps % self.grad_accum_steps == 0
                     is_logging_step = self.now_steps % self.log_interval == 0
@@ -313,17 +313,21 @@ class Trainer:
             key = key.replace("_orig_mod.", "")
             key = key.replace("module.", "")
             correct_model_state_dict[key] = value
+
         state_dict = {
             "model": correct_model_state_dict,
-            "optimizer": self.optimizer.state_dict(),
-            "scheduler": self.scheduler.state_dict(),
-            "scaler": self.scaler.state_dict(),
             "now_steps": self.now_steps,
             "now_tokens": self.now_tokens,
             "config": self.config,
         }
+        torch.save(state_dict, self.dpath_ckpt / FNAME_MODEL)
+
+        state_dict.update({
+            "optimizer": self.optimizer.state_dict(),
+            "scheduler": self.scheduler.state_dict(),
+            "scaler": self.scaler.state_dict(),
+        })
         torch.save(state_dict, self.dpath_ckpt / FNAME_STATE)
-        torch.save(correct_model_state_dict, self.dpath_ckpt / FNAME_MODEL)
 
         if snapshot:
             fname_snapshot = f"{self.now_steps:0{len(str(self.total_steps))}d}.pth"
