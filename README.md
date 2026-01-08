@@ -10,7 +10,6 @@ Transformer系モデルをスクラッチ実装し、理解を深める。
 - CLIP[^4]: [models/clip.py](models/clip.py)
 - 学習コード（言語モデル学習のみ）: [train.py](train.py)
 
-
 [^1]: [Vaswani, Ashish, et al. "Attention Is All You Need." *Advances in Neural Information Processing Systems*, 2017, pp. 5998–6008. arXiv:1706.03762.](https://arxiv.org/abs/1706.03762)
 [^2]: [Radford, Alec, et al. "Language Models are Unsupervised Multitask Learners." OpenAI Blog, 2019.](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
 [^3]: [Dosovitskiy, Alexey, et al. "An Image is Worth 16×16 Words: Transformers for Image Recognition at Scale." *arXiv preprint arXiv:2010.11929* (2021).](https://arxiv.org/abs/2010.11929)
@@ -40,6 +39,6 @@ uv run torchrun --nproc_per_node=1 train.py -c gpt2
 
 ### デモ
 
-学習下モデルを使って実際に文章生成を試す。
+学習したモデルを使って実際に文章生成を試す。
 
 [playground.ipynb](playground.ipynb)
