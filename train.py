@@ -9,12 +9,12 @@ import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from transformers import get_cosine_schedule_with_warmup
+from safetensors.torch import save_file
 import wandb
 import typer
 from tqdm import tqdm
 
-from utils import load_config, get_tokenizer, get_dataloader, get_optimizer
-from models import get_model
+from utils import get_model, get_dataloader, get_optimizer
 
 
 FNAME_STATE = "state.pth"
@@ -38,21 +38,17 @@ def main(
     ),
 ):
     """Train a language model."""
-    config = load_config(fname_config)
-    trainer = Trainer(config, dpath_ckpt)
+    trainer = Trainer(fname_config, dpath_ckpt)
     trainer.train()
 
 
 class Trainer:
-    def __init__(self, config, dpath_ckpt):
+    def __init__(self, fname_config, dpath_ckpt):
         self.start_time = datetime.now(JST)
-        self.tokenizer = get_tokenizer(config.model.tokenizer)
 
-        config.model.hparams["max_len"] = config.model.max_len
-        config.model.hparams["vocab_size"] = self.tokenizer.vocab_size
+        self.model, self.tokenizer, config = get_model(fname_config)
         self.config = config.asdict()
 
-        self.model = get_model(config.model.arch, config.model.hparams)
         self.n_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = get_optimizer(
@@ -314,19 +310,17 @@ class Trainer:
             key = key.replace("module.", "")
             correct_model_state_dict[key] = value
 
+        save_file(correct_model_state_dict, self.dpath_ckpt / FNAME_MODEL)
+
         state_dict = {
             "model": correct_model_state_dict,
             "now_steps": self.now_steps,
             "now_tokens": self.now_tokens,
             "config": self.config,
-        }
-        torch.save(state_dict, self.dpath_ckpt / FNAME_MODEL)
-
-        state_dict.update({
             "optimizer": self.optimizer.state_dict(),
             "scheduler": self.scheduler.state_dict(),
             "scaler": self.scaler.state_dict(),
-        })
+        }
         torch.save(state_dict, self.dpath_ckpt / FNAME_STATE)
 
         if snapshot:
