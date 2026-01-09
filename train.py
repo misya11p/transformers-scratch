@@ -19,7 +19,7 @@ from utils import get_model, get_dataloader, get_optimizer
 
 
 FNAME_STATE = "state.pth"
-FNAME_MODEL = "model.pth"
+FNAME_MODEL = "model.safetensors"
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 app = typer.Typer(add_completion=False, context_settings=CONTEXT_SETTINGS)
 
