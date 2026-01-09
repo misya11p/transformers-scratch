@@ -1,4 +1,5 @@
 import torch.nn as nn
+from huggingface_hub import PyTorchModelHubMixin
 
 from .layers import (
     LearnablePositionalEmbedding,
@@ -56,7 +57,7 @@ class GPT2Encoder(nn.Module):
         return x
 
 
-class GPT2(nn.Module):
+class GPT2(nn.Module, PyTorchModelHubMixin):
     def __init__(
         self,
         vocab_size,

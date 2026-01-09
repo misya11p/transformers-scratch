@@ -1,4 +1,5 @@
 import torch.nn as nn
+from huggingface_hub import PyTorchModelHubMixin
 
 from .layers import (
     SinusoidalPositionalEmbedding,
@@ -26,7 +27,7 @@ class VanillaTransformerLayer(nn.Module):
         return x
 
 
-class VanillaTransformer(nn.Module):
+class VanillaTransformer(nn.Module, PyTorchModelHubMixin):
     def __init__(
         self,
         vocab_size,

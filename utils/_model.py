@@ -1,7 +1,4 @@
-from pathlib import Path
-
 import torch
-from safetensors.torch import load_file
 
 from ._config import load_config
 from ._tokenizer import get_tokenizer
@@ -27,12 +24,3 @@ def get_model(fname_config) -> torch.nn.Module:
             raise ValueError(f"Model {arch} not recognized")
 
     return model, tokenizer, config
-
-
-def load_model(fname_config, fpath_ckpt=None, device="cpu"):
-    if fpath_ckpt is None:
-        fpath_ckpt = Path(f"trained/{fname_config}.safetensors")
-    model, tokenizer, _ = get_model(fname_config)
-    model.load_state_dict(load_file(fpath_ckpt, device="cpu"))
-    model.to(device)
-    return model, tokenizer
