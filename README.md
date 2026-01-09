@@ -42,3 +42,11 @@ uv run torchrun --nproc_per_node=1 train.py -c gpt2
 学習したモデルを使って実際に文章生成を試す。
 
 [playground.ipynb](playground.ipynb)
+
+## 学習済みモデル
+
+本プログラムで学習したモデルはHugging Faceにアップロード済み。
+
+- [Vanilla Transformer (35M)](https://huggingface.co/misya11p/vanilla-transformer-fineweb-japanese-scratch)
+- [GPT-2 (110M)](https://huggingface.co/misya11p/gpt2-fineweb-japanese-scratch)
+- [GPT-2 Large (750M)](https://huggingface.co/misya11p/gpt2-large-fineweb-japanese-scratch)
