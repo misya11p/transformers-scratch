@@ -1,7 +1,7 @@
 from transformers import PreTrainedTokenizerFast
 
 
-def get_tokenizer(fpath_tokenizer="tokenizer.json"):
+def get_tokenizer(fpath_tokenizer="trained/tokenizer.json"):
     tokenizer = PreTrainedTokenizerFast(tokenizer_file=fpath_tokenizer)
     tokenizer.add_special_tokens({
         "bos_token": "<s>",
