@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 from safetensors.torch import load_file
 
@@ -27,7 +29,9 @@ def get_model(fname_config) -> torch.nn.Module:
     return model, tokenizer, config
 
 
-def load_model(fpath_ckpt, fname_config, device="cpu"):
+def load_model(fname_config, fpath_ckpt=None, device="cpu"):
+    if fpath_ckpt is None:
+        fpath_ckpt = Path(f"trained/{fname_config}.safetensors")
     model, tokenizer, _ = get_model(fname_config)
     model.load_state_dict(load_file(fpath_ckpt, device="cpu"))
     model.to(device)
