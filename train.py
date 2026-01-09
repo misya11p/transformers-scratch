@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from collections import OrderedDict
 import contextlib
 
@@ -19,7 +20,6 @@ from utils import get_model, get_dataloader, get_optimizer
 
 FNAME_STATE = "state.pth"
 FNAME_MODEL = "model.pth"
-JST = timezone(timedelta(hours=9))
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 app = typer.Typer(add_completion=False, context_settings=CONTEXT_SETTINGS)
 
@@ -44,7 +44,7 @@ def main(
 
 class Trainer:
     def __init__(self, fname_config, dpath_ckpt):
-        self.start_time = datetime.now(JST)
+        self.start_time = datetime.now(tz=ZoneInfo("Asia/Tokyo"))
 
         self.model, self.tokenizer, config = get_model(fname_config)
         self.config = config.asdict()
