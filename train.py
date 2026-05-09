@@ -127,11 +127,10 @@ class Trainer:
 
     @staticmethod
     def _is_dist():
-        world_size = os.environ.get("WORLD_SIZE")
+        world_size = os.environ.get("WORLD_SIZE", 0)
         return (
             dist.is_available()
             and torch.cuda.is_available()
-            and world_size is not None
             and int(world_size) >= 2
         )
 
