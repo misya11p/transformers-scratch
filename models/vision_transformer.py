@@ -59,21 +59,21 @@ class VisionTransformer(nn.Module):
     def __init__(
         self,
         n_classes,
-        image_size,
-        patch_size,
-        hidden_size,
-        n_layers,
-        mlp_size,
-        n_heads,
+        image_size=224,
+        patch_size=16,
+        hidden_size=768,
+        n_layers=12,
+        mlp_size=3072,
+        n_heads=12,
     ):
         super().__init__()
         self.encoder = VisionTransformerEncoder(
-            image_size,
-            patch_size,
-            hidden_size,
-            n_layers,
-            mlp_size,
-            n_heads,
+            image_size=image_size,
+            patch_size=patch_size,
+            hidden_size=hidden_size,
+            n_layers=n_layers,
+            mlp_size=mlp_size,
+            n_heads=n_heads,
         )
         self.norm = nn.LayerNorm(hidden_size)
         self.mlp = nn.Linear(hidden_size, n_classes)
