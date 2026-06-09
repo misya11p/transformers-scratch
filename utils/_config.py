@@ -1,7 +1,11 @@
+from pathlib import Path
 import tomllib
 from dataclasses import dataclass, asdict
 
 from dacite import from_dict
+
+
+ROOT = Path(__file__).parent.parent
 
 
 @dataclass
@@ -36,6 +40,6 @@ class Config:
 
 
 def load_config(name: str) -> Config:
-    with open(f"config/{name}.toml", "rb") as f:
+    with open(ROOT / f"config/{name}.toml", "rb") as f:
         config_dict = tomllib.load(f)
     return from_dict(Config, config_dict)
