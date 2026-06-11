@@ -1,0 +1,32 @@
+from importlib import import_module
+from pathlib import Path
+
+import torch
+
+from utils import load_config
+
+
+MODULE_PIPELINES = "pipelines"
+
+
+def get_pipeline(src: str | Path):
+    src = Path(src)
+    assert src.exists(), f"Source '{src}' does not exist."
+
+    match src.suffix:
+        case ".toml":
+            config = load_config(src.stem)
+            params = None
+        case ".pth" | ".pt":
+            state_dict = torch.load(src, map_location="cpu")
+            config = state_dict["config"]
+            params = state_dict["parameters"]
+        case _:
+            raise ValueError(f"Supported source types are .toml, .pth(pt).")
+
+    task = config.task.name
+    cls = getattr(import_module(f"{MODULE_PIPELINES}"), f"{task}Pipeline")
+    pipeline = cls(config)
+    if params is not None:
+        pipeline.load_state_dict(params)
+    return pipeline
