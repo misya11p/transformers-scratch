@@ -1,26 +1,10 @@
-import torch
-
-from ._config import load_config
-from ._tokenizer import get_tokenizer
+from importlib import import_module
 
 
-def get_model(fname_config) -> torch.nn.Module:
-    config = load_config(fname_config)
+MODULE_MODELS = "models"
 
-    tokenizer = get_tokenizer(config.model.tokenizer)
-    arch = config.model.arch
-    hparams = config.model.hparams
-    hparams["max_len"] = config.model.max_len
-    hparams["vocab_size"] = tokenizer.vocab_size
 
-    match arch:
-        case "vanilla":
-            from models import VanillaTransformer
-            model = VanillaTransformer(**hparams)
-        case "gpt2":
-            from models import GPT2
-            model = GPT2(**hparams)
-        case _:
-            raise ValueError(f"Model {arch} not recognized")
-
-    return model, tokenizer, config
+def get_model(config_model):
+    cls = getattr(import_module(f"{MODULE_MODELS}"), config_model.name)
+    model = cls(**config_model.arch)
+    return model
