@@ -9,31 +9,35 @@ ROOT = Path(__file__).parent.parent
 
 
 @dataclass
+class TaskConfig:
+    name: str
+
+@dataclass
 class ModelConfig:
-    arch: str
-    hparams: dict
-    tokenizer: str = "trained/tokenizer.json"
-    max_len: int = 1024
+    name: str
+    arch: dict
 
 @dataclass
 class TrainConfig:
     total_steps: int # Total training steps (n_backward = n_foward / grad_accum_steps)
     batch_size: int # This value will be divided by world_size
-    grad_accum_steps: int = 1
-    max_grad_norm: float = 1.0
-    log_interval: int = 64
-    eval_interval: int = 1024
+    grad_accum_steps: int
+    max_grad_norm: float
+    warmup_ratio: float
+    log_interval: int
+    eval_interval: int
+    muon: dict
+    adam: dict
     save_interval: int | None = None
-    warmup_ratio: float = 0.1
-    muon_params: dict | None = None
-    adam_params: dict | None = None
-    wandb_project: str = "transformers-scratch"
-    wandb_name: str | None = None
+    wandb_project: str = "deep-learning-scratch"
+    wandb_run: str | None = None
 
 @dataclass
 class Config:
+    task: TaskConfig
     model: ModelConfig
     train: TrainConfig
+    additional: dict | None = None
 
     def asdict(self):
         return asdict(self)
@@ -42,4 +46,5 @@ class Config:
 def load_config(name: str) -> Config:
     with open(ROOT / f"config/{name}.toml", "rb") as f:
         config_dict = tomllib.load(f)
-    return from_dict(Config, config_dict)
+    config = from_dict(Config, config_dict)
+    return config
