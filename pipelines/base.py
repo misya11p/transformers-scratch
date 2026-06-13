@@ -96,7 +96,6 @@ class BasePipeline(ABC):
                 name=name,
                 config=self.config,
             )
-            # todo: define metrics
 
     def _setup_checkpoint(self, dpath_ckpt):
         if dpath_ckpt is None:
@@ -116,7 +115,6 @@ class BasePipeline(ABC):
             self.scheduler.load_state_dict(state_dict["scheduler"])
             self.scaler.load_state_dict(state_dict["scaler"])
             self.now_steps = state_dict["now_steps"]
-            # self.now_tokens = state_dict["now_tokens"]
             self.resume = True
         self.dpath_ckpt = dpath_ckpt
 
@@ -147,21 +145,27 @@ class BasePipeline(ABC):
             self.model = self.model.to(self.device)
 
     def _get_dataloader(self):
-        ds_train, ds_valid, cls_ds = self.get_dataset()
+        ds_train, ds_valid, get_ds_func = self.get_dataset()
         ds_train = ds_train.shuffle(buffer_size=10000)
 
         if (self.world_size >= 2) and (self.global_rank is not None):
-            ds_train = ds_train.shard(num_shards=self.world_size, index=self.global_rank)
-            ds_valid = ds_valid.shard(num_shards=self.world_size, index=self.global_rank)
+            ds_train = ds_train.shard(
+                num_shards=self.world_size,
+                index=self.global_rank,
+            )
+            ds_valid = ds_valid.shard(
+                num_shards=self.world_size,
+                index=self.global_rank,
+            )
 
         train_loader = DataLoader(
-            cls_ds(ds_train),
-            batch_size=self.batch_size,
+            get_ds_func(ds_train),
+            batch_size=self.config.train.batch_size,
             pin_memory=True,
         )
         valid_loader = DataLoader(
-            cls_ds(ds_valid),
-            batch_size=self.batch_size,
+            get_ds_func(ds_valid),
+            batch_size=self.config.train.batch_size,
             pin_memory=True,
         )
         return train_loader, valid_loader
@@ -215,30 +219,20 @@ class BasePipeline(ABC):
                     self.optimizer.zero_grad()
                     self.scheduler.step()
 
-                # if is_logging_step:
-                #     loss = self._reduce(loss.detach())
-                #     if self.is_master:
-                #         ppl = torch.exp(loss).item()
-                #         self.wandb_run.log(
-                #             {
-                #                 "train/perplexity": ppl,
-                #                 "total_tokens": self.now_tokens,
-                #             },
-                #             step=self.now_steps,
-                #         )
-                #         self._save_checkpoint()
+                if is_logging_step:
+                    loss = self._reduce(loss.detach())
+                    if self.is_master:
+                        self.wandb_run.log(
+                            { "train/loss": loss },
+                            step=self.now_steps,
+                        )
+                        self._save_checkpoint()
 
-                # if is_evaluating_step:
-                #     ppl = self._evaluate()
-                #     if self.is_master:
-                #         self.wandb_run.log(
-                #             {
-                #                 "valid/perplexity": ppl,
-                #                 "total_tokens": self.now_tokens,
-                #             },
-                #             step=self.now_steps,
-                #         )
-                #         self._save_checkpoint()
+                if is_evaluating_step:
+                    result_eval = self.evaluate()
+                    if self.is_master:
+                        self.wandb_run.log(result_eval, step=self.now_steps)
+                        self._save_checkpoint()
 
                 if is_saving_step:
                     if self.is_master:
@@ -251,6 +245,13 @@ class BasePipeline(ABC):
         if self.is_master:
             print("Training finished.", flush=True)
             self.wandb_run.finish()
+
+    def _reduce(self, tensor, avg=True):
+        if self.is_dist:
+            dist.reduce(tensor, dst=0)
+            if avg:
+                tensor = tensor / self.world_size
+        return tensor
 
     def _save_checkpoint(self, snapshot=False):
         model_state_dict = self.model.state_dict()
@@ -265,7 +266,6 @@ class BasePipeline(ABC):
         state_dict = {
             "model": correct_model_state_dict,
             "now_steps": self.now_steps,
-            "now_tokens": self.now_tokens,
             "config": self.config,
             "optimizer": self.optimizer.state_dict(),
             "scheduler": self.scheduler.state_dict(),
@@ -279,5 +279,13 @@ class BasePipeline(ABC):
             torch.save(state_dict, fpath_snapshot)
 
     @abstractmethod
+    def get_dataset(self):
+        pass
+
+    @abstractmethod
     def forward(self, batch):
+        pass
+
+    @abstractmethod
+    def evaluate(self):
         pass
