@@ -18,8 +18,6 @@ from safetensors.torch import save_file
 import wandb
 from tqdm import tqdm
 
-from utils import get_model, get_optimizer
-
 
 ROOT = Path(__file__).parent.parent
 DPATH_CHECKPOINTS = ROOT / "checkpoints"
@@ -33,7 +31,7 @@ class Pipeline(ABC):
     def __init__(self, config):
         self.config = config
         self.device = current_accelerator(check_available=True) or CPU
-        self.model = get_model(config.model)
+        self.model = self.get_model()
         if not self.is_dist(): # Prevent the same model from being placed on multiple devices
             self.model.to(self.device)
         self.n_params = sum(p.numel() for p in self.model.parameters())
@@ -45,7 +43,7 @@ class Pipeline(ABC):
 
     def setup_train(self, dpath_ckpt=None):
         self.start_time = datetime.now(tz=ZoneInfo("Asia/Tokyo"))
-        config_train = self.config_train # alias
+        config_train = self.config.train # alias
 
         self.total_steps = config_train.total_steps
         self.grad_accum_steps = config_train.grad_accum_steps
@@ -53,11 +51,7 @@ class Pipeline(ABC):
         warmup_steps = int(config_train.warmup_ratio * scheduler_steps)
         self.max_grad_norm = config_train.max_grad_norm
 
-        self.optimizer = get_optimizer(
-            self.model,
-            hparams_adam=config_train.adam,
-            hparams_muon=config_train.muon
-        )
+        self.optimizer = self._get_optimizer()
         self.scheduler = get_cosine_schedule_with_warmup(
             self.optimizer,
             num_warmup_steps=warmup_steps,
