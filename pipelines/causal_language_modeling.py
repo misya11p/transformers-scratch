@@ -47,7 +47,7 @@ class CausalLanguageModelingPipeline(Pipeline):
         return tokenizer
 
     def get_dataset(self):
-        tokenizer = self.get_tokenizer(self.config.additional.tokenizer)
+        tokenizer = self.get_tokenizer(self.config.additional["tokenizer"])
         max_len = self.config.model.arch.max_len
         ds_train = load_dataset(
             "hotchpotch/fineweb-2-edu-japanese",
@@ -115,7 +115,7 @@ class CausalLanguageModelingPipeline(Pipeline):
         top_k=5
     ):
         self.model.eval()
-        tokenizer = self.get_tokenizer(self.config.additional.tokenizer)
+        tokenizer = self.get_tokenizer(self.config.additional["tokenizer"])
         eos_id = tokenizer.eos_token_id
         token_ids = tokenizer.encode(start_text, add_special_tokens=False)
         token_ids.insert(0, eos_id)
