@@ -1,9 +1,12 @@
-[model]
-arch = "gpt2"
-tokenizer = "trained/tokenizer.json"
-max_len = 1024
+[task]
+name = "CausalLanguageModeling"
 
-[model.hparams]
+[model]
+name = "GPT2"
+
+[model.arch]
+vocab_size = 8000
+max_len = 1024
 n_layers = 12
 d_model = 768
 n_heads = 12
@@ -18,13 +21,16 @@ max_grad_norm = 1.0
 log_interval = 32
 eval_interval = 512
 warmup_ratio = 0.03
-wandb_project = "transformers-scratch"
+wandb_project = "deep-learning-scratch"
 
-[train.muon_params]
+[train.muon]
 lr = 2e-2
 weight_decay = 0.01
 
-[train.adam_params]
+[train.adam]
 lr = 3e-4
 weight_decay = 0.1
 betas = [0.9, 0.95]
+
+[additional]
+tokenizer = "trained/tokenizer.json"
