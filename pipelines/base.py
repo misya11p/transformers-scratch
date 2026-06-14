@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
-from abc import ABC, abstractmethod
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from abc import ABC, abstractmethod
+from importlib import import_module
 from collections import OrderedDict
 import contextlib
 
@@ -12,6 +13,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.accelerator import current_accelerator
 from torch.utils.data import DataLoader
 from transformers import get_cosine_schedule_with_warmup
+from muon import MuonWithAuxAdam
 from safetensors.torch import save_file
 import wandb
 from tqdm import tqdm
@@ -21,6 +23,7 @@ from utils import get_model, get_optimizer
 
 ROOT = Path(__file__).parent.parent
 DPATH_CHECKPOINTS = ROOT / "checkpoints"
+MODULE_MODELS = "models"
 FNAME_STATE = "state.pth"
 FNAME_MODEL = "model.safetensors"
 CPU = torch.device("cpu")
@@ -34,6 +37,11 @@ class Pipeline(ABC):
         if not self.is_dist(): # Prevent the same model from being placed on multiple devices
             self.model.to(self.device)
         self.n_params = sum(p.numel() for p in self.model.parameters())
+
+    def get_model(self):
+        cls = getattr(import_module(f"{MODULE_MODELS}"), self.config.model.name)
+        model = cls(**self.config.model.arch)
+        return model
 
     def setup_train(self, dpath_ckpt=None):
         self.start_time = datetime.now(tz=ZoneInfo("Asia/Tokyo"))
@@ -143,6 +151,23 @@ class Pipeline(ABC):
             self.world_size = 1
             self.global_rank = 0
             self.model = self.model.to(self.device)
+
+    def _get_optimizer(self):
+        params_adam = []
+        params_muon = []
+
+        for name, parameter in self.model.named_parameters():
+            if (parameter.ndim >= 2) and "transformer_layers." in name:
+                params_muon.append(parameter)
+            else:
+                params_adam.append(parameter)
+
+        optimizer = MuonWithAuxAdam([
+            dict(params=params_muon, use_muon=True, **self.config_train.muon),
+            dict(params=params_adam, use_muon=False, **self.config_train.adam),
+        ])
+
+        return optimizer
 
     def _get_dataloader(self):
         ds_train, ds_valid, get_ds_func = self.get_dataset()
