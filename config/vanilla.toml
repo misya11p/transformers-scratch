@@ -2,7 +2,7 @@
 name = "CausalLanguageModeling"
 
 [model]
-name = "GPT2"
+name = "VanillaTransformer"
 
 [model.arch]
 vocab_size = 16000
