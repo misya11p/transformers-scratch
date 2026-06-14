@@ -4,7 +4,7 @@ from torch.utils.data import IterableDataset
 from transformers import PreTrainedTokenizerFast
 from datasets import load_dataset
 
-from .base import Pipeline
+from ..base import Pipeline
 
 
 class TextDataset(IterableDataset):
