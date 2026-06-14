@@ -5,7 +5,7 @@ name = "CausalLanguageModeling"
 name = "GPT2"
 
 [model.arch]
-vocab_size = 8000
+vocab_size = 16000
 max_len = 1024
 n_layers = 6
 d_model = 512
