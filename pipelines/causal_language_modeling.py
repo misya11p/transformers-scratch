@@ -37,7 +37,7 @@ class TextDataset(IterableDataset):
 
 class CausalLanguageModelingPipeline(Pipeline):
     @staticmethod
-    def get_tokenizer(fpath_tokenizer):
+    def get_tokenizer(fpath_tokenizer="trained/tokenizer.json"):
         tokenizer = PreTrainedTokenizerFast(tokenizer_file=fpath_tokenizer)
         tokenizer.add_special_tokens({
             "bos_token": "<s>",
@@ -121,7 +121,7 @@ class CausalLanguageModelingPipeline(Pipeline):
         token_ids.insert(0, eos_id)
 
         if streaming:
-            print(start_text, end="")
+            print(start_text, end="", flush=True)
 
         for _ in range(max_len):
             input_ids = torch.tensor(
@@ -140,9 +140,11 @@ class CausalLanguageModelingPipeline(Pipeline):
             if next_token == eos_id:
                 break
             if streaming:
-                print(tokenizer.convert_ids_to_tokens(next_token), end="")
+                print(
+                    tokenizer.decode([next_token], skip_special_tokens=True),
+                    end="",
+                    flush=True,
+                )
 
-        generated_text = tokenizer.decode(
-            token_ids, skip_special_tokens=True
-        )
+        generated_text = tokenizer.decode(token_ids, skip_special_tokens=True)
         return generated_text
