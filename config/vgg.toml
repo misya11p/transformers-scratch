@@ -1,0 +1,20 @@
+[task]
+name = "ImageClassification"
+
+[model]
+name = "VGG16"
+
+[train]
+total_steps = 6000
+batch_size = 128
+grad_accum_steps = 1
+max_grad_norm = 1.0
+log_interval = 32
+eval_interval = 256
+warmup_ratio = 0.03
+wandb_project = "deep-learning-scratch"
+
+[train.adam]
+lr = 3e-4
+weight_decay = 0.1
+betas = [0.9, 0.95]
