@@ -48,7 +48,7 @@ class CausalLanguageModelingPipeline(Pipeline):
 
     def get_dataset(self):
         tokenizer = self.get_tokenizer(self.config.additional["tokenizer"])
-        max_len = self.config.model.arch.max_len
+        max_len = self.config.model.arch["max_len"]
         ds_train = load_dataset(
             "hotchpotch/fineweb-2-edu-japanese",
             "small_tokens_cleaned",

@@ -73,7 +73,7 @@ class Pipeline(ABC):
 
         self.model = torch.compile(self.model)
 
-        self.train_loader, self.valid_loader = self.get_dataloader()
+        self.train_loader, self.valid_loader = self._get_dataloader()
         self.log_interval = config_train.log_interval
         self.eval_interval = config_train.eval_interval
         self.save_interval = config_train.save_interval
@@ -158,10 +158,16 @@ class Pipeline(ABC):
             else:
                 params_adam.append(parameter)
 
-        optimizer = MuonWithAuxAdam([
-            dict(params=params_muon, use_muon=True, **self.config_train.muon),
-            dict(params=params_adam, use_muon=False, **self.config_train.adam),
-        ])
+        if self._is_dist():
+            optimizer = MuonWithAuxAdam([
+                dict(params=params_muon, use_muon=True, **self.config.train.muon),
+                dict(params=params_adam, use_muon=False, **self.config.train.adam),
+            ])
+        else:
+            optimizer = torch.optim.AdamW(
+                params_adam + params_muon,
+                **self.config.train.adam,
+            )
 
         return optimizer
 
