@@ -16,7 +16,7 @@ class TaskConfig:
 @dataclass
 class ModelConfig:
     name: str
-    arch: dict
+    arch: dict | None = None
 
 @dataclass
 class TrainConfig:
@@ -27,8 +27,8 @@ class TrainConfig:
     warmup_ratio: float
     log_interval: int
     eval_interval: int
-    muon: dict
     adam: dict
+    muon: dict | None = None
     save_interval: int | None = None
     wandb_project: str = "deep-learning-scratch"
     wandb_run: str | None = None
