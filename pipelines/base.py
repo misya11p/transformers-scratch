@@ -32,7 +32,7 @@ class Pipeline(ABC):
         self.config = config
         self.device = current_accelerator(check_available=True) or CPU
         self.model = self.get_model()
-        if not self.is_dist(): # Prevent the same model from being placed on multiple devices
+        if not self._is_dist(): # Prevent the same model from being placed on multiple devices
             self.model.to(self.device)
         self.n_params = sum(p.numel() for p in self.model.parameters())
 
@@ -224,7 +224,7 @@ class Pipeline(ABC):
                     context_nosync = contextlib.nullcontext()
 
                 with context_nosync, self.context_autocast:
-                    loss = self.forward(batch)
+                    loss = self.calc_loss(batch)
                 loss_scaled = self.scaler.scale(loss / self.grad_accum_steps)
                 loss_scaled.backward()
 
@@ -302,7 +302,7 @@ class Pipeline(ABC):
         pass
 
     @abstractmethod
-    def forward(self, batch):
+    def calc_loss(self, batch):
         pass
 
     @abstractmethod
