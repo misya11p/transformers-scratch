@@ -10,12 +10,15 @@ app = typer.Typer(add_completion=False, context_settings=CONTEXT_SETTINGS)
 @app.command()
 def main(
     src: str = typer.Argument(
-        help="",
+        help=(
+            "Path to the config (TOML) file when starting training, or "
+            "the path to a checkpoint directory when resuming training."
+        ),
     ),
     dpath_ckpt: str = typer.Option(
         None,
         "-c", "--dpath-ckpt",
-        help="",
+        help="Path to the directory where checkpoints will be saved.",
     ),
 ):
     """Train a model."""
