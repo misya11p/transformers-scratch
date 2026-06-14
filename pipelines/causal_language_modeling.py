@@ -55,13 +55,13 @@ class CausalLanguageModelingPipeline(Pipeline):
             split="train",
             streaming=True,
         )
-        ds_valid = load_dataset(
+        ds_test = load_dataset(
             "hotchpotch/fineweb-2-edu-japanese",
             "small_tokens_cleaned",
             split="test",
         )
         get_ds_func = lambda ds: TextDataset(ds, tokenizer, max_len)
-        return ds_train, ds_valid, get_ds_func
+        return ds_train, ds_test, get_ds_func
 
     def _unpack_batch(self, batch):
         token_ids, seq_ids = batch
@@ -88,7 +88,7 @@ class CausalLanguageModelingPipeline(Pipeline):
         self.model.eval()
         total_loss = torch.tensor(0., device=self.device)
         n = 0
-        for batch in self.valid_loader:
+        for batch in self.test_loader:
             input_ids, labels, attention_mask = self._unpack_batch(batch)
             with self.context_autocast:
                 pred = self.model(input_ids, attention_mask)
@@ -100,8 +100,8 @@ class CausalLanguageModelingPipeline(Pipeline):
         avg_loss = (total_loss / n)
         ppl = torch.exp(avg_loss)
         result = {
-            "valid/loss": avg_loss.item(),
-            "valid/perplexity": ppl.item(),
+            "test/loss": avg_loss.item(),
+            "test/perplexity": ppl.item(),
         }
         return result
 
@@ -160,9 +160,9 @@ class CausalLanguageModelingNanoPipeline(CausalLanguageModelingPipeline):
             split="train",
             streaming=True,
         )
-        ds_valid = load_dataset(
+        ds_test = load_dataset(
             "globis-university/aozorabunko-clean",
             split="train[:1%]",
         )
         get_ds_func = lambda ds: TextDataset(ds, tokenizer, max_len)
-        return ds_train, ds_valid, get_ds_func
+        return ds_train, ds_test, get_ds_func

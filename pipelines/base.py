@@ -73,7 +73,7 @@ class Pipeline(ABC):
 
         self.model = torch.compile(self.model)
 
-        self.train_loader, self.valid_loader = self._get_dataloader()
+        self.train_loader, self.test_loader = self._get_dataloader()
         self.log_interval = config_train.log_interval
         self.eval_interval = config_train.eval_interval
         self.save_interval = config_train.save_interval
@@ -172,7 +172,7 @@ class Pipeline(ABC):
         return optimizer
 
     def _get_dataloader(self):
-        ds_train, ds_valid, get_ds_func = self.get_dataset()
+        ds_train, ds_test, get_ds_func = self.get_dataset()
         ds_train = ds_train.shuffle(buffer_size=10000)
 
         if (self.world_size >= 2) and (self.global_rank is not None):
@@ -180,7 +180,7 @@ class Pipeline(ABC):
                 num_shards=self.world_size,
                 index=self.global_rank,
             )
-            ds_valid = ds_valid.shard(
+            ds_test = ds_test.shard(
                 num_shards=self.world_size,
                 index=self.global_rank,
             )
@@ -190,12 +190,12 @@ class Pipeline(ABC):
             batch_size=self.config.train.batch_size,
             pin_memory=True,
         )
-        valid_loader = DataLoader(
-            get_ds_func(ds_valid),
+        test_loader = DataLoader(
+            get_ds_func(ds_test),
             batch_size=self.config.train.batch_size,
             pin_memory=True,
         )
-        return train_loader, valid_loader
+        return train_loader, test_loader
 
     def train(self):
         if self.is_master:
