@@ -148,3 +148,21 @@ class CausalLanguageModelingPipeline(Pipeline):
 
         generated_text = tokenizer.decode(token_ids, skip_special_tokens=True)
         return generated_text
+
+
+# For demonstration of a smaller dataset and faster training.
+class CausalLanguageModelingNanoPipeline(CausalLanguageModelingPipeline):
+    def get_dataset(self):
+        tokenizer = self.get_tokenizer(self.config.additional["tokenizer"])
+        max_len = self.config.model.arch["max_len"]
+        ds_train = load_dataset(
+            "globis-university/aozorabunko-clean",
+            split="train",
+            streaming=True,
+        )
+        ds_valid = load_dataset(
+            "globis-university/aozorabunko-clean",
+            split="train[:1%]",
+        )
+        get_ds_func = lambda ds: TextDataset(ds, tokenizer, max_len)
+        return ds_train, ds_valid, get_ds_func
