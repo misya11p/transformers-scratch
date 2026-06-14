@@ -3,7 +3,7 @@ from pathlib import Path
 
 import torch
 
-from .config import load_config
+from .config import get_config
 from .base import Pipeline
 
 
@@ -16,11 +16,11 @@ def get_pipeline(src: str | Path) -> Pipeline:
 
     match src.suffix:
         case ".toml":
-            config = load_config(src.stem)
+            config = get_config(src.stem)
             params = None
         case ".pth" | ".pt":
             state_dict = torch.load(src, map_location="cpu")
-            config = state_dict["config"]
+            config = get_config(state_dict["config"])
             params = state_dict["parameters"]
         case _:
             raise ValueError(f"Supported source types are .toml, .pth(pt).")

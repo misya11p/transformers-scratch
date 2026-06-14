@@ -44,8 +44,11 @@ class Config:
         return asdict(self)
 
 
-def load_config(name: str) -> Config:
-    with open(DPATH_CONFIG / f"{name}.toml", "rb") as f:
-        config_dict = tomllib.load(f)
-    config = from_dict(Config, config_dict)
+def get_config(src: str | Path | dict) -> Config:
+    if isinstance(src, str):
+        src = DPATH_CONFIG / f"{src}.toml"
+    if isinstance(src, Path):
+        with open(src, "rb") as f:
+            src = tomllib.load(f)
+    config = from_dict(Config, src)
     return config

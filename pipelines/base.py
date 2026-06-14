@@ -285,7 +285,7 @@ class Pipeline(ABC):
         state_dict = {
             "model": correct_model_state_dict,
             "now_steps": self.now_steps,
-            "config": self.config,
+            "config": self.config.asdict(),
             "optimizer": self.optimizer.state_dict(),
             "scheduler": self.scheduler.state_dict(),
             "scaler": self.scaler.state_dict(),
