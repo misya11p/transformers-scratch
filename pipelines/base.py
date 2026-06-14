@@ -26,7 +26,7 @@ FNAME_MODEL = "model.safetensors"
 CPU = torch.device("cpu")
 
 
-class BasePipeline(ABC):
+class Pipeline(ABC):
     def __init__(self, config):
         self.config = config
         self.device = current_accelerator(check_available=True) or CPU

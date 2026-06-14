@@ -4,7 +4,7 @@ from torch.utils.data import IterableDataset
 from transformers import PreTrainedTokenizerFast
 from datasets import load_dataset
 
-from .base import BasePipeline
+from .base import Pipeline
 
 
 class TextDataset(IterableDataset):
@@ -35,7 +35,7 @@ class TextDataset(IterableDataset):
                 buf_seq_ids = buf_seq_ids[self.max_length:]
 
 
-class CausalLanguageModelingPipeline(BasePipeline):
+class CausalLanguageModelingPipeline(Pipeline):
     @staticmethod
     def get_tokenizer(fpath_tokenizer):
         tokenizer = PreTrainedTokenizerFast(tokenizer_file=fpath_tokenizer)
