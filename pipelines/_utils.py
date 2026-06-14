@@ -21,13 +21,11 @@ def get_pipeline(src: str | Path) -> Pipeline:
         case ".pth" | ".pt":
             state_dict = torch.load(src, map_location="cpu")
             config = get_config(state_dict["config"])
-            params = state_dict["parameters"]
+            params = state_dict["model"]
         case _:
             raise ValueError(f"Supported source types are .toml, .pth(pt).")
 
     task = config.task.name
     cls = getattr(import_module(f"{MODULE_PIPELINES}"), f"{task}Pipeline")
-    pipeline = cls(config)
-    if params is not None:
-        pipeline.load_state_dict(params)
+    pipeline = cls(config, state_dict_model=params)
     return pipeline

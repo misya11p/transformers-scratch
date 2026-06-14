@@ -28,13 +28,15 @@ CPU = torch.device("cpu")
 
 
 class Pipeline(ABC):
-    def __init__(self, config):
+    def __init__(self, config, state_dict_model=None):
         self.config = config
         self.device = current_accelerator(check_available=True) or CPU
         self.model = self.get_model()
+        self.n_params = sum(p.numel() for p in self.model.parameters())
+        if state_dict_model is not None:
+            self.model.load_state_dict(state_dict_model)
         if not self._is_dist(): # Prevent the same model from being placed on multiple devices
             self.model.to(self.device)
-        self.n_params = sum(p.numel() for p in self.model.parameters())
 
     def get_model(self):
         cls = getattr(import_module(f"{MODULE_MODELS}"), self.config.model.name)
