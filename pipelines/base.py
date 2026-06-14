@@ -40,7 +40,8 @@ class Pipeline(ABC):
 
     def get_model(self):
         cls = getattr(import_module(f"{MODULE_MODELS}"), self.config.model.name)
-        model = cls(**self.config.model.arch)
+        arch = self.config.model.arch or {}
+        model = cls(**arch)
         return model
 
     def setup_train(self, dpath_ckpt=None):
