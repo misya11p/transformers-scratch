@@ -3,13 +3,14 @@ from pathlib import Path
 
 import torch
 
-from utils import load_config
+from .config import load_config
+from .base import Pipeline
 
 
 MODULE_PIPELINES = "pipelines"
 
 
-def get_pipeline(src: str | Path):
+def get_pipeline(src: str | Path) -> Pipeline:
     src = Path(src)
     assert src.exists(), f"Source '{src}' does not exist."
 
