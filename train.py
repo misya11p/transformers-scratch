@@ -3,9 +3,6 @@ import typer
 from pipelines import get_pipeline
 
 
-FNAME_STATE = "state.pth"
-FNAME_MODEL = "model.safetensors"
-
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 app = typer.Typer(add_completion=False, context_settings=CONTEXT_SETTINGS)
 
