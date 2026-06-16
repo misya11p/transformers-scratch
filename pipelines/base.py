@@ -286,7 +286,11 @@ class Pipeline(ABC):
         correct_model_state_dict = OrderedDict()
         for key, value in model_state_dict.items():
             key = key.replace("_orig_mod.", "")
+                # If the model is wrapped with `torch.compile`,
+                # "_orig_mod." is appended to the key
             key = key.replace("module.", "")
+                # If the model is wrapped with `DDP`,
+                # "module." is appended to the key
             correct_model_state_dict[key] = value
 
         save_file(correct_model_state_dict, self.dpath_ckpt / FNAME_MODEL)
