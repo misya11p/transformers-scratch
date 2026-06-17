@@ -9,16 +9,16 @@ ROOT = Path(__file__).parent.parent
 DPATH_CONFIG = ROOT / "config"
 
 
-@dataclass
+@dataclass(frozen=True)
 class TaskConfig:
     name: str
 
-@dataclass
+@dataclass(frozen=True)
 class ModelConfig:
     name: str
     arch: dict | None = None
 
-@dataclass
+@dataclass(frozen=True)
 class TrainConfig:
     total_steps: int # Total training steps (n_backward = n_foward / grad_accum_steps)
     batch_size: int # This value will be divided by world_size
@@ -33,7 +33,7 @@ class TrainConfig:
     wandb_project: str = "deep-learning-scratch"
     wandb_run: str | None = None
 
-@dataclass
+@dataclass(frozen=True)
 class Config:
     task: TaskConfig
     model: ModelConfig
